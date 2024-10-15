@@ -1,5 +1,8 @@
 # NJU Software Analysis (feat.Yue Li, Tian Tan) Homework
 
+A1: Done
+A2 and later: Unassigned
+
 ------
 
 # Origin Repo README.md
