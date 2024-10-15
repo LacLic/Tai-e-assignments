@@ -45,15 +45,15 @@ class IterativeSolver<Node, Fact> extends Solver<Node, Fact> {
             isChanged = false;
 
             for(Node node : cfg.getNodes()) if(!node.equals(cfg.getExit())) {
+                Fact new_out = analysis.newInitialFact();
                 for(Node succ : cfg.getSuccsOf(node)) {
-                    Fact new_out = analysis.newInitialFact();
                     analysis.meetInto(result.getInFact(succ), new_out);
-                    result.setOutFact(node, new_out);
-
-                    Fact new_in = analysis.newInitialFact();
-                    isChanged = analysis.transferNode(node, new_in, new_out);
-                    result.setInFact(node, new_in);
                 }
+                result.setOutFact(node, new_out);   
+
+                Fact new_in = result.getInFact(node);
+                isChanged |= analysis.transferNode(node, new_in, new_out);
+                result.setInFact(node, new_in);
             }
         }
     }
