@@ -1,6 +1,7 @@
 # NJU Software Analysis (feat.Yue Li, Tian Tan) Homework
 
-A1: Done
+A1: Accepted
+
 A2 and later: Unassigned
 
 ------
