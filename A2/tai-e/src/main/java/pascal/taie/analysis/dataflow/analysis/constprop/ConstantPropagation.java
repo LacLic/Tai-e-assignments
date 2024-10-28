@@ -35,6 +35,7 @@ import pascal.taie.ir.exp.BitwiseExp;
 import pascal.taie.ir.exp.ConditionExp;
 import pascal.taie.ir.exp.Exp;
 import pascal.taie.ir.exp.IntLiteral;
+import pascal.taie.ir.exp.LValue;
 import pascal.taie.ir.exp.ShiftExp;
 import pascal.taie.ir.exp.Var;
 import pascal.taie.ir.stmt.DefinitionStmt;
@@ -61,7 +62,7 @@ public class ConstantPropagation extends
     public CPFact newBoundaryFact(CFG<Stmt> cfg) {
         // TODO - finish me
         CPFact res = new CPFact();
-        for(Var var : cfg.getIR().getParams()) {
+        for(Var var : cfg.getIR().getParams()) if(canHoldInt(var)) {
             res.update(var, Value.getNAC());
         }   
         return res;
@@ -78,14 +79,15 @@ public class ConstantPropagation extends
         // TODO - finish me
         Stream<Map.Entry<Var, Value>> entries = fact.entries();
         entries.forEach(entry -> {
-            Value v = target.get(entry.getKey());
-            if(v == null) {
-                target.update(entry.getKey(), entry.getValue());
-            }else if(v.equals(entry.getValue())) {
-                ; // PASS
-            }else {
-                target.update(entry.getKey(), Value.getNAC());
-            }
+            // Value v = target.get(entry.getKey());
+            // if(v == null) {
+            //     target.update(entry.getKey(), entry.getValue());
+            // }else if(v.equals(entry.getValue())) {
+            //     ; // PASS
+            // }else {
+            //     target.update(entry.getKey(), Value.getNAC());
+            // }
+            target.update(entry.getKey(), meetValue(entry.getValue(), target.get(entry.getKey())));
         });
     }
 
@@ -99,18 +101,34 @@ public class ConstantPropagation extends
             res = Value.getNAC();
         }else if(v1.isUndef()) {
             res = v2;
-        }else if(v1.getConstant() == v2.getConstant()) {
+        }else if(c1 == c2) {
             res = v1;
         }else {
             res = Value.getNAC();
         }
 
-        return res;
+        return res; 
     }
 
+    /**
+     * @return whether the in[stmt] is changed
+     */
     @Override
     public boolean transferNode(Stmt stmt, CPFact in, CPFact out) {
         // TODO - finish me
+        CPFact new_in = in.copy();
+        
+        // new_in.remove(stmt.getDef());
+        if(stmt.getDef().isPresent()) {
+            LValue def = stmt.getDef().get();
+            if(def instanceof Var var && canHoldInt(var)) {
+                new_in.remove(var);
+            }
+        }
+
+        CPFact new_out = new CPFact();
+        stmt.getUses();
+
         return false;
     }
 
@@ -141,6 +159,52 @@ public class ConstantPropagation extends
      */
     public static Value evaluate(Exp exp, CPFact in) {
         // TODO - finish me
+        Value res = null;
+        if(exp instanceof BinaryExp binaryExp) {
+            Value v1 = in.get(binaryExp.getOperand1()), v2 = in.get(binaryExp.getOperand2());
+            if(v1.isConstant() && v2.isConstant()) {
+                int c1 = v1.getConstant(), c2 = v2.getConstant();
+                if(binaryExp instanceof ArithmeticExp aexp) {
+                    res = switch (aexp.getOperator()) {
+                        case ADD -> Value.makeConstant(c1 + c2);
+                        case SUB -> Value.makeConstant(c1 - c2);
+                        case MUL -> Value.makeConstant(c1 * c2);
+                        case DIV -> Value.makeConstant(c1 / c2);
+                        case REM -> Value.makeConstant(c1 % c2);
+                    };
+                }else if(binaryExp instanceof BitwiseExp bexp) {
+                    res = switch (bexp.getOperator()) {
+                        case OR -> Value.makeConstant(c1 | c2);
+                        case AND -> Value.makeConstant(c1 & c2);
+                        case XOR -> Value.makeConstant(c1 ^ c2);
+                    };
+                }else if(binaryExp instanceof ConditionExp bexp) {
+                    res = switch (bexp.getOperator()) {
+                        case EQ -> Value.makeConstant(c1 == c2 ? 1 : 0);
+                        case NE -> Value.makeConstant(c1 != c2 ? 1 : 0);
+                        case LT -> Value.makeConstant(c1 < c2 ? 1 : 0);
+                        case GT -> Value.makeConstant(c1 > c2 ? 1 : 0);
+                        case LE -> Value.makeConstant(c1 <= c2 ? 1 : 0);
+                        case GE -> Value.makeConstant(c1 >= c2 ? 1 : 0);
+                    };
+                }else if(binaryExp instanceof ShiftExp sexp) {
+                    res = switch (sexp.getOperator()) {
+                        case SHL -> Value.makeConstant(c1 << c2);
+                        case SHR -> Value.makeConstant(c1 >> c2);
+                        case USHR -> Value.makeConstant(c1 >>> c2);
+                    };
+                }else {
+                    assert(false);
+                }
+            }else if(v1.isNAC() || v2.isNAC()) {
+                res = Value.getNAC();
+            }else {
+                res = Value.getUndef();
+            }
+        }
+
+        assert(res != null);
+        
         return null;
     }
 }
