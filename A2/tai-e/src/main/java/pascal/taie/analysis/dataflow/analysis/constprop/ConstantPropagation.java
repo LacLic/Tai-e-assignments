@@ -60,7 +60,11 @@ public class ConstantPropagation extends
     @Override
     public CPFact newBoundaryFact(CFG<Stmt> cfg) {
         // TODO - finish me
-        return new CPFact();
+        CPFact res = new CPFact();
+        for(Var var : cfg.getIR().getParams()) {
+            res.update(var, Value.getNAC());
+        }   
+        return res;
     }
 
     @Override
