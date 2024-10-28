@@ -21,6 +21,9 @@
  */
 
 package pascal.taie.analysis.dataflow.analysis.constprop;
+ 
+import java.util.Map;
+import java.util.stream.Stream;
 
 import pascal.taie.analysis.dataflow.analysis.AbstractDataflowAnalysis;
 import pascal.taie.analysis.graph.cfg.CFG;
@@ -57,18 +60,29 @@ public class ConstantPropagation extends
     @Override
     public CPFact newBoundaryFact(CFG<Stmt> cfg) {
         // TODO - finish me
-        return null;
+        return new CPFact();
     }
 
     @Override
     public CPFact newInitialFact() {
         // TODO - finish me
-        return null;
+        return new CPFact();
     }
 
     @Override
     public void meetInto(CPFact fact, CPFact target) {
         // TODO - finish me
+        Stream<Map.Entry<Var, Value>> entries = fact.entries();
+        entries.forEach(entry -> {
+            Value v = target.get(entry.getKey());
+            if(v == null) {
+                target.update(entry.getKey(), entry.getValue());
+            }else if(v.equals(entry.getValue())) {
+                ; // PASS
+            }else {
+                target.update(entry.getKey(), Value.getNAC());
+            }
+        });
     }
 
     /**
