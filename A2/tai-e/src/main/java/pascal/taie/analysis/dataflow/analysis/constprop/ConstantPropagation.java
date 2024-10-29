@@ -171,8 +171,8 @@ public class ConstantPropagation extends
                         case ADD -> Value.makeConstant(c1 + c2);
                         case SUB -> Value.makeConstant(c1 - c2);
                         case MUL -> Value.makeConstant(c1 * c2);
-                        case DIV -> Value.makeConstant(c1 / c2);
-                        case REM -> Value.makeConstant(c1 % c2);
+                        case DIV -> c2 == 0 ? Value.getUndef() : Value.makeConstant(c1 / c2);
+                        case REM -> c2 == 0 ? Value.getUndef() : Value.makeConstant(c1 % c2);
                     };
                 }else if(binaryExp instanceof BitwiseExp bexp) {
                     res = switch (bexp.getOperator()) {
