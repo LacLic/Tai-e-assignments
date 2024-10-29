@@ -43,7 +43,7 @@ class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
         buffer.clear();
         while(!worklist.isEmpty()) {
             for(Node node : worklist) {
-                Fact new_in = result.getInFact(node);
+                Fact new_in = analysis.newInitialFact();
                 for(Node pred : cfg.getPredsOf(node)) {
                     analysis.meetInto(result.getOutFact(pred), new_in);
                 }
