@@ -22,6 +22,8 @@
 
 package pascal.taie.analysis.dataflow.solver;
 
+import java.util.Set;
+
 import pascal.taie.analysis.dataflow.analysis.DataflowAnalysis;
 import pascal.taie.analysis.dataflow.fact.DataflowResult;
 import pascal.taie.analysis.graph.cfg.CFG;
@@ -35,6 +37,25 @@ class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
     @Override
     protected void doSolveForward(CFG<Node> cfg, DataflowResult<Node, Fact> result) {
         // TODO - finish me
+        Set<Node> worklist = cfg.getNodes(), buffer = /* Just get the instance of Set<> */ cfg.getPredsOf(cfg.getEntry());
+        buffer.clear();
+        while(!worklist.isEmpty()) {
+            for(Node e : worklist) {
+                Fact new_in = result.getInFact(e);
+                for(Node pred : cfg.getPredsOf(e)) {
+                    analysis.meetInto(result.getOutFact(pred), new_in);
+                }
+                result.setInFact(e, new_in);
+
+                if(analysis.transferNode(e, result.getInFact(e), new_in)) {
+                    buffer.addAll(cfg.getSuccsOf(e));
+                }
+            }
+            Set<Node> temp = worklist;
+            worklist = buffer;
+            buffer = temp;
+            buffer.clear();
+        }
     }
 
     @Override
