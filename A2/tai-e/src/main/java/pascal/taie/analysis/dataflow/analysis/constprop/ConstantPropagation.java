@@ -28,7 +28,6 @@ import java.util.stream.Stream;
 import pascal.taie.analysis.dataflow.analysis.AbstractDataflowAnalysis;
 import pascal.taie.analysis.graph.cfg.CFG;
 import pascal.taie.config.AnalysisConfig;
-import pascal.taie.ir.IR;
 import pascal.taie.ir.exp.ArithmeticExp;
 import pascal.taie.ir.exp.BinaryExp;
 import pascal.taie.ir.exp.BitwiseExp;
@@ -42,7 +41,6 @@ import pascal.taie.ir.stmt.DefinitionStmt;
 import pascal.taie.ir.stmt.Stmt;
 import pascal.taie.language.type.PrimitiveType;
 import pascal.taie.language.type.Type;
-import pascal.taie.util.AnalysisException;
 
 public class ConstantPropagation extends
         AbstractDataflowAnalysis<Stmt, CPFact> {
@@ -101,7 +99,7 @@ public class ConstantPropagation extends
             res = Value.getNAC();
         }else if(v1.isUndef()) {
             res = v2;
-        }else if(c1 == c2) {
+        }else if(v1.isConstant() && v2.isConstant() && v1.getConstant() == v2.getConstant()) {
             res = v1;
         }else {
             res = Value.getNAC();
@@ -127,7 +125,9 @@ public class ConstantPropagation extends
         }
 
         CPFact new_out = new CPFact();
-        stmt.getUses();
+        if(stmt instanceof DefinitionStmt ds && ds.getLValue() instanceof Var l_var) {
+            new_out.update(l_var, evaluate(ds.getRValue(), in));
+        }
 
         return false;
     }
@@ -178,8 +178,8 @@ public class ConstantPropagation extends
                         case AND -> Value.makeConstant(c1 & c2);
                         case XOR -> Value.makeConstant(c1 ^ c2);
                     };
-                }else if(binaryExp instanceof ConditionExp bexp) {
-                    res = switch (bexp.getOperator()) {
+                }else if(binaryExp instanceof ConditionExp cexp) {
+                    res = switch (cexp.getOperator()) {
                         case EQ -> Value.makeConstant(c1 == c2 ? 1 : 0);
                         case NE -> Value.makeConstant(c1 != c2 ? 1 : 0);
                         case LT -> Value.makeConstant(c1 < c2 ? 1 : 0);
@@ -193,18 +193,20 @@ public class ConstantPropagation extends
                         case SHR -> Value.makeConstant(c1 >> c2);
                         case USHR -> Value.makeConstant(c1 >>> c2);
                     };
-                }else {
-                    assert(false);
                 }
             }else if(v1.isNAC() || v2.isNAC()) {
                 res = Value.getNAC();
             }else {
                 res = Value.getUndef();
             }
+        }else if(exp instanceof Var var) {
+            res = in.get(var);
+        }else if(exp instanceof IntLiteral il) {
+            res = Value.makeConstant(il.getValue());
         }
 
         assert(res != null);
         
-        return null;
+        return res;
     }
 }
