@@ -22,8 +22,7 @@
 
 package pascal.taie.analysis.dataflow.analysis.constprop;
  
-import java.util.Map;
-import java.util.stream.Stream;
+import com.fasterxml.jackson.annotation.JacksonInject;
 
 import pascal.taie.analysis.dataflow.analysis.AbstractDataflowAnalysis;
 import pascal.taie.analysis.graph.cfg.CFG;
@@ -34,7 +33,6 @@ import pascal.taie.ir.exp.BitwiseExp;
 import pascal.taie.ir.exp.ConditionExp;
 import pascal.taie.ir.exp.Exp;
 import pascal.taie.ir.exp.IntLiteral;
-import pascal.taie.ir.exp.LValue;
 import pascal.taie.ir.exp.ShiftExp;
 import pascal.taie.ir.exp.Var;
 import pascal.taie.ir.stmt.DefinitionStmt;
@@ -162,15 +160,17 @@ public class ConstantPropagation extends
         Value res = null;
         if(exp instanceof BinaryExp binaryExp) {
             Value v1 = in.get(binaryExp.getOperand1()), v2 = in.get(binaryExp.getOperand2());
-            if(v1.isConstant() && v2.isConstant()) {
+            if(exp instanceof ArithmeticExp aexp && (aexp.getOperator() == ArithmeticExp.Op.DIV || aexp.getOperator() == ArithmeticExp.Op.REM) && v2.isConstant() && v2.getConstant() == 0) {
+                res = Value.getUndef();
+            }else if(v1.isConstant() && v2.isConstant()) {
                 int c1 = v1.getConstant(), c2 = v2.getConstant();
                 if(binaryExp instanceof ArithmeticExp aexp) {
                     res = switch (aexp.getOperator()) {
                         case ADD -> Value.makeConstant(c1 + c2);
                         case SUB -> Value.makeConstant(c1 - c2);
                         case MUL -> Value.makeConstant(c1 * c2);
-                        case DIV -> c2 == 0 ? Value.getUndef() : Value.makeConstant(c1 / c2);
-                        case REM -> c2 == 0 ? Value.getUndef() : Value.makeConstant(c1 % c2);
+                        case DIV -> Value.makeConstant(c1 / c2);
+                        case REM -> Value.makeConstant(c1 % c2);
                     };
                 }else if(binaryExp instanceof BitwiseExp bexp) {
                     res = switch (bexp.getOperator()) {
