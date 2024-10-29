@@ -22,8 +22,6 @@
 
 package pascal.taie.analysis.dataflow.analysis.constprop;
  
-import com.fasterxml.jackson.annotation.JacksonInject;
-
 import pascal.taie.analysis.dataflow.analysis.AbstractDataflowAnalysis;
 import pascal.taie.analysis.graph.cfg.CFG;
 import pascal.taie.config.AnalysisConfig;

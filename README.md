@@ -2,7 +2,11 @@
 
 A1: Accepted
 
-A2 and later: Unassigned
+A2: Accepted
+
+A3: WIP
+
+A4 and later: Unasigned
 
 ------
 
