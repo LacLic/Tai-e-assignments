@@ -6,7 +6,7 @@ A2: Accepted
 
 A3: WIP
 
-A4 and later: Unasigned
+A4 and later: Unassigned
 
 ------
 
