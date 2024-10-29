@@ -205,6 +205,8 @@ public class ConstantPropagation extends
             res = in.get(var);
         }else if(exp instanceof IntLiteral il) {
             res = Value.makeConstant(il.getValue());
+        }else {
+            res = Value.getNAC();
         }
 
         assert(res != null);
