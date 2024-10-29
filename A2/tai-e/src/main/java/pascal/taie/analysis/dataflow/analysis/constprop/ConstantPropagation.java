@@ -85,7 +85,7 @@ public class ConstantPropagation extends
             // }else {
             //     target.update(entry.getKey(), Value.getNAC());
             // }
-            target.update(entry.getKey(), meetValue(entry.getValue(), target.get(entry.getKey())));
+            target.update(entry.getKey(), meetValue(target.get(entry.getKey()), entry.getValue()));
         });
     }
 
@@ -129,10 +129,9 @@ public class ConstantPropagation extends
             }
         }
 
-        boolean res = !out.equals(new_out);
-        out = new_out;
+        new_out.copyFrom(new_in);
 
-        return res;
+        return out.copyFrom(new_out);
     }
 
     /**
