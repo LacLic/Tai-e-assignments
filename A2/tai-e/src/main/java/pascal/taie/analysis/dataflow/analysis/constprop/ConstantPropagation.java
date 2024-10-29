@@ -75,8 +75,7 @@ public class ConstantPropagation extends
     @Override
     public void meetInto(CPFact fact, CPFact target) {
         // TODO - finish me
-        Stream<Map.Entry<Var, Value>> entries = fact.entries();
-        entries.forEach(entry -> {
+        fact.entries().forEach(entry -> {
             // Value v = target.get(entry.getKey());
             // if(v == null) {
             //     target.update(entry.getKey(), entry.getValue());
@@ -123,16 +122,9 @@ public class ConstantPropagation extends
         CPFact new_in = in.copy();
         CPFact new_out = new CPFact();
         
-        if(stmt.getDef().isPresent()) {
-            // new_in.remove(stmt.getDef());
-            LValue def = stmt.getDef().get();
-            if(def instanceof Var var && canHoldInt(var)) {
-                new_in.remove(var);
-            }
-
-            if(stmt instanceof DefinitionStmt ds && ds.getLValue() instanceof Var l_var) {
-                new_out.update(l_var, evaluate(ds.getRValue(), in));
-            }
+        if(stmt instanceof DefinitionStmt ds && ds.getLValue() instanceof Var var && canHoldInt(var)) {
+            new_in.remove(var);
+            new_out.update(var, evaluate(ds.getRValue(), in));
         }
 
         new_out.copyFrom(new_in);
