@@ -115,7 +115,6 @@ public class ConstantPropagation extends
     public boolean transferNode(Stmt stmt, CPFact in, CPFact out) {
         // TODO - finish me
         CPFact new_in = in.copy();
-
         CPFact new_out = new CPFact();
         
         if(stmt.getDef().isPresent()) {
