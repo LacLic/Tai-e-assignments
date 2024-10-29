@@ -95,14 +95,20 @@ public class ConstantPropagation extends
     public Value meetValue(Value v1, Value v2) {
         // TODO - finish me
         Value res;
-        if(v1.isNAC()) {
+        if(v1.isNAC() || v2.isNAC()) {
             res = Value.getNAC();
-        }else if(v1.isUndef()) {
-            res = v2;
-        }else if(v1.isConstant() && v2.isConstant() && v1.getConstant() == v2.getConstant()) {
-            res = v1;
-        }else {
-            res = Value.getNAC();
+        }else if(v1.isConstant() && v2.isConstant()) {
+            if(v1.getConstant() == v2.getConstant()) {
+                res = Value.makeConstant(v1.getConstant());
+            }else {
+                res = Value.getNAC();
+            }
+        }else if(v1.isConstant() && v2.isUndef()) {
+            res = Value.makeConstant(v1.getConstant());
+        }else if(v1.isUndef() && v2.isConstant()) {
+            res = Value.makeConstant(v2.getConstant());
+        }else /* v1,v2 both Undef */ {
+            res = Value.getUndef();
         }
 
         return res; 
