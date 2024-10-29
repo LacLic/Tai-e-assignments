@@ -115,21 +115,25 @@ public class ConstantPropagation extends
     public boolean transferNode(Stmt stmt, CPFact in, CPFact out) {
         // TODO - finish me
         CPFact new_in = in.copy();
+
+        CPFact new_out = new CPFact();
         
-        // new_in.remove(stmt.getDef());
         if(stmt.getDef().isPresent()) {
+            // new_in.remove(stmt.getDef());
             LValue def = stmt.getDef().get();
             if(def instanceof Var var && canHoldInt(var)) {
                 new_in.remove(var);
             }
+
+            if(stmt instanceof DefinitionStmt ds && ds.getLValue() instanceof Var l_var) {
+                new_out.update(l_var, evaluate(ds.getRValue(), in));
+            }
         }
 
-        CPFact new_out = new CPFact();
-        if(stmt instanceof DefinitionStmt ds && ds.getLValue() instanceof Var l_var) {
-            new_out.update(l_var, evaluate(ds.getRValue(), in));
-        }
+        boolean res = !out.equals(new_out);
+        out = new_out;
 
-        return false;
+        return res;
     }
 
     /**
