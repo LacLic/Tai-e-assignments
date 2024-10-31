@@ -20,51 +20,77 @@
  * License along with Tai-e. If not, see <https://www.gnu.org/licenses/>.
  */
 
-package pascal.taie.analysis.dataflow.analysis;
+ package pascal.taie.analysis.dataflow.analysis;
 
-import pascal.taie.analysis.dataflow.fact.SetFact;
-import pascal.taie.analysis.graph.cfg.CFG;
-import pascal.taie.config.AnalysisConfig;
-import pascal.taie.ir.exp.Var;
-import pascal.taie.ir.stmt.Stmt;
-
-/**
- * Implementation of classic live variable analysis.
- */
-public class LiveVariableAnalysis extends
-        AbstractDataflowAnalysis<Stmt, SetFact<Var>> {
-
-    public static final String ID = "livevar";
-
-    public LiveVariableAnalysis(AnalysisConfig config) {
-        super(config);
-    }
-
-    @Override
-    public boolean isForward() {
-        return false;
-    }
-
-    @Override
-    public SetFact<Var> newBoundaryFact(CFG<Stmt> cfg) {
-        // TODO - finish me
-        return null;
-    }
-
-    @Override
-    public SetFact<Var> newInitialFact() {
-        // TODO - finish me
-        return null;
-    }
-
-    @Override
-    public void meetInto(SetFact<Var> fact, SetFact<Var> target) {
-        // TODO - finish me
-    }
-
-    @Override
-    public boolean transferNode(Stmt stmt, SetFact<Var> in, SetFact<Var> out) {
-        // TODO - finish me
-        return false;
-    }
-}
+ import pascal.taie.analysis.dataflow.fact.SetFact;
+ import pascal.taie.analysis.graph.cfg.CFG;
+ import pascal.taie.config.AnalysisConfig;
+ import pascal.taie.ir.exp.LValue;
+ import pascal.taie.ir.exp.RValue;
+ import pascal.taie.ir.exp.Var;
+ import pascal.taie.ir.stmt.Stmt;
+ 
+ /**
+  * Implementation of classic live variable analysis.
+  */
+ public class LiveVariableAnalysis extends
+         AbstractDataflowAnalysis<Stmt, SetFact<Var>> {
+ 
+     public static final String ID = "livevar";
+ 
+     public LiveVariableAnalysis(AnalysisConfig config) {
+         super(config);
+     }
+ 
+     @Override
+     public boolean isForward() {
+         return false;
+     }
+ 
+     @Override
+     public SetFact<Var> newBoundaryFact(CFG<Stmt> cfg) {
+         // TODO - finish me
+         return new SetFact<Var>();
+     }
+ 
+     @Override
+     public SetFact<Var> newInitialFact() {
+         // TODO - finish me
+         return new SetFact<Var>();
+     }
+ 
+     @Override
+     public void meetInto(SetFact<Var> fact, SetFact<Var> target) {
+         // TODO - finish me
+         target.union(fact);
+     }
+ 
+     @Override
+     public boolean transferNode(Stmt stmt, SetFact<Var> in, SetFact<Var> out) {
+         // return whether the in[stmt] is changed
+         // TODO - finish me
+         SetFact<Var> new_out = out.copy();
+         // new_out.remove(stmt.getDef());
+         if(stmt.getDef().isPresent()) {
+             LValue def = stmt.getDef().get();
+             if(def instanceof Var var) {
+                 new_out.remove(var);
+             }
+         }
+         
+         SetFact<Var> use = new SetFact<>();
+         for(RValue e : stmt.getUses()) {
+             // use.add(e);
+             if(e instanceof Var var) {
+                 use.add(var);
+             }
+         }
+         
+         SetFact<Var> new_in = new_out.unionWith(use);
+         boolean ret = !new_in.equals(in);
+         in.set(new_in);
+ 
+         return ret;
+     }
+ }
+ 

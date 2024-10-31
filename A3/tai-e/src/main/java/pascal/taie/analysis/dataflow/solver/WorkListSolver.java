@@ -22,6 +22,9 @@
 
 package pascal.taie.analysis.dataflow.solver;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import pascal.taie.analysis.dataflow.analysis.DataflowAnalysis;
 import pascal.taie.analysis.dataflow.fact.DataflowResult;
 import pascal.taie.analysis.graph.cfg.CFG;
@@ -35,10 +38,49 @@ class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
     @Override
     protected void doSolveForward(CFG<Node> cfg, DataflowResult<Node, Fact> result) {
         // TODO - finish me
+        Set<Node> worklist = new HashSet<Node>(cfg.getNodes());
+        Set<Node> buffer = new HashSet<Node>();
+        buffer.clear();
+        while(!worklist.isEmpty()) {
+            for(Node node : worklist) {
+                Fact new_in = analysis.newInitialFact();
+                for(Node pred : cfg.getPredsOf(node)) {
+                    analysis.meetInto(result.getOutFact(pred), new_in);
+                }
+                result.setInFact(node, new_in);
+
+                Fact new_out = result.getOutFact(node);
+                if(analysis.transferNode(node, new_in, new_out)) {
+                    buffer.addAll(cfg.getSuccsOf(node));
+                }
+                result.setOutFact(node, new_out);
+            }
+            Set<Node> temp = worklist;
+            worklist = buffer;
+            buffer = temp;
+            buffer.clear();
+        }
     }
 
     @Override
+    /* Iterative Solver */
     protected void doSolveBackward(CFG<Node> cfg, DataflowResult<Node, Fact> result) {
         // TODO - finish me
+        boolean isChanged = true;
+        while(isChanged) {
+            isChanged = false;
+
+            for(Node node : cfg.getNodes()) if(!node.equals(cfg.getExit())) {
+                Fact new_out = analysis.newInitialFact();
+                for(Node succ : cfg.getSuccsOf(node)) {
+                    analysis.meetInto(result.getInFact(succ), new_out);
+                }
+                result.setOutFact(node, new_out);
+
+                Fact new_in = result.getInFact(node);
+                isChanged |= analysis.transferNode(node, new_in, new_out);
+                result.setInFact(node, new_in);
+            }
+        }
     }
 }
