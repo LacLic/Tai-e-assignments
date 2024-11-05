@@ -22,6 +22,14 @@
 
 package pascal.taie.analysis.dataflow.analysis;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
+import java.util.TreeSet;
 import pascal.taie.analysis.MethodAnalysis;
 import pascal.taie.analysis.dataflow.analysis.constprop.CPFact;
 import pascal.taie.analysis.dataflow.analysis.constprop.ConstantPropagation;
@@ -41,13 +49,10 @@ import pascal.taie.ir.exp.NewExp;
 import pascal.taie.ir.exp.RValue;
 import pascal.taie.ir.exp.Var;
 import pascal.taie.ir.stmt.AssignStmt;
+import pascal.taie.ir.stmt.DefinitionStmt;
 import pascal.taie.ir.stmt.If;
 import pascal.taie.ir.stmt.Stmt;
 import pascal.taie.ir.stmt.SwitchStmt;
-
-import java.util.Comparator;
-import java.util.Set;
-import java.util.TreeSet;
 
 public class DeadCodeDetection extends MethodAnalysis {
 
@@ -69,8 +74,64 @@ public class DeadCodeDetection extends MethodAnalysis {
                 ir.getResult(LiveVariableAnalysis.ID);
         // keep statements (dead code) sorted in the resulting set
         Set<Stmt> deadCode = new TreeSet<>(Comparator.comparing(Stmt::getIndex));
+
         // TODO - finish me
         // Your task is to recognize dead code in ir and add it to deadCode
+        Queue<Stmt> q = new LinkedList<>();
+        q.add(cfg.getEntry());
+        ArrayList<Boolean> isVisited = new ArrayList<>(Collections.nCopies(cfg.getNodes().size(), false));
+        while(!q.isEmpty()) {
+            Stmt stmt = q.poll();
+            isVisited.set(stmt.getIndex(), true);
+            if(stmt instanceof If ifs) {
+                Value val = ConstantPropagation.evaluate(ifs.getCondition(), constants.getInFact(ifs));
+                for(Edge<Stmt> edge : cfg.getOutEdgesOf(ifs)) {
+                    if(edge.getKind() == Edge.Kind.IF_TRUE && (val.isConstant() && val.getConstant() == 1 || val.isNAC())) {
+                        q.add(edge.getTarget());
+                    }
+                    if(edge.getKind() == Edge.Kind.IF_FALSE && (val.isConstant() && val.getConstant() == 0 || val.isNAC())) {
+                        q.add(edge.getTarget());
+                    }
+                }
+            }else if(stmt instanceof SwitchStmt swt) {
+                Value val = ConstantPropagation.evaluate(swt.getVar(), constants.getInFact(swt));
+                if(val.isNAC()) {
+                    for(Edge<Stmt> edge : cfg.getOutEdgesOf(swt)) {
+                        q.add(edge.getTarget());
+                    }
+                }else { assert(val.isConstant());
+                    boolean isDefault = true;
+                    for(Edge<Stmt> edge : cfg.getOutEdgesOf(swt)) {
+                        if(val.getConstant() == edge.getCaseValue()) {
+                            isDefault = false;
+                            q.add(edge.getTarget());
+                        }
+                    }
+                    if(isDefault) {
+                        q.add(swt.getDefaultTarget());
+                    }
+                }
+            }else if(stmt instanceof DefinitionStmt dfn) {
+                if(hasNoSideEffect(dfn.getRValue()) && dfn instanceof AssignStmt asn) {
+                    if(asn.getLValue() instanceof Var lvar) {
+                        if(!liveVars.getOutFact(asn).contains(lvar)) {
+                            deadCode.add(asn);
+                        }
+                    }
+                }
+                for(Edge<Stmt> edge : cfg.getOutEdgesOf(dfn)) {
+                    q.add(edge.getTarget());
+                }
+            }else {
+                for(Edge<Stmt> edge : cfg.getOutEdgesOf(stmt)) {
+                    q.add(edge.getTarget());
+                }
+            }
+        }
+        for(Stmt stmt : cfg.getNodes()) if(!isVisited.get(stmt.getIndex())) {
+            deadCode.add(stmt);
+        }
+
         return deadCode;
     }
 

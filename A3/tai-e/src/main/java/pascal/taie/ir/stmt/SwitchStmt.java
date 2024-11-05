@@ -146,6 +146,6 @@ public abstract class SwitchStmt extends JumpStmt {
         sb.append("default->").append(toString(defaultTarget)).append('}');
         return sb.toString();
     }
-
+    
     public abstract String getInsnString();
 }
