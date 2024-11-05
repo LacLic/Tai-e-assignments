@@ -89,28 +89,28 @@ public class DeadCodeDetection extends MethodAnalysis {
                 Value val = ConstantPropagation.evaluate(ifs.getCondition(), constants.getInFact(ifs));
                 for(Edge<Stmt> edge : cfg.getOutEdgesOf(ifs)) {
                     if(edge.getKind() == Edge.Kind.IF_TRUE && (val.isConstant() && val.getConstant() == 1 || val.isNAC())) {
-                        if(isVisited.get(edge.getTarget().getIndex())) q.add(edge.getTarget());
+                        if(!isVisited.get(edge.getTarget().getIndex())) q.add(edge.getTarget());
                     }
                     if(edge.getKind() == Edge.Kind.IF_FALSE && (val.isConstant() && val.getConstant() == 0 || val.isNAC())) {
-                        if(isVisited.get(edge.getTarget().getIndex())) q.add(edge.getTarget());
+                        if(!isVisited.get(edge.getTarget().getIndex())) q.add(edge.getTarget());
                     }
                 }
             }else if(stmt instanceof SwitchStmt swt) {
                 Value val = ConstantPropagation.evaluate(swt.getVar(), constants.getInFact(swt));
                 if(val.isNAC()) {
                     for(Edge<Stmt> edge : cfg.getOutEdgesOf(swt)) {
-                        if(isVisited.get(edge.getTarget().getIndex())) q.add(edge.getTarget());
+                        if(!isVisited.get(edge.getTarget().getIndex())) q.add(edge.getTarget());
                     }
                 }else { assert(val.isConstant());
                     boolean isDefault = true;
                     for(Edge<Stmt> edge : cfg.getOutEdgesOf(swt)) {
                         if(val.getConstant() == edge.getCaseValue()) {
                             isDefault = false;
-                            if(isVisited.get(edge.getTarget().getIndex())) q.add(edge.getTarget());
+                            if(!isVisited.get(edge.getTarget().getIndex())) q.add(edge.getTarget());
                         }
                     }
                     if(isDefault) {
-                        if(isVisited.get(swt.getDefaultTarget().getIndex())) q.add(swt.getDefaultTarget());
+                        if(!isVisited.get(swt.getDefaultTarget().getIndex())) q.add(swt.getDefaultTarget());
                     }
                 }
             }else if(stmt instanceof DefinitionStmt dfn) {
@@ -122,11 +122,11 @@ public class DeadCodeDetection extends MethodAnalysis {
                     }
                 }
                 for(Edge<Stmt> edge : cfg.getOutEdgesOf(dfn)) {
-                    if(isVisited.get(edge.getTarget().getIndex())) q.add(edge.getTarget());
+                    if(!isVisited.get(edge.getTarget().getIndex())) q.add(edge.getTarget());
                 }
             }else {
                 for(Edge<Stmt> edge : cfg.getOutEdgesOf(stmt)) {
-                    if(isVisited.get(edge.getTarget().getIndex())) q.add(edge.getTarget());
+                    if(!isVisited.get(edge.getTarget().getIndex())) q.add(edge.getTarget());
                 }
             }
         }
