@@ -104,9 +104,11 @@ public class DeadCodeDetection extends MethodAnalysis {
                 }else { assert(val.isConstant());
                     boolean isDefault = true;
                     for(Edge<Stmt> edge : cfg.getOutEdgesOf(swt)) {
-                        if(val.getConstant() == edge.getCaseValue()) {
-                            isDefault = false;
-                            if(!isVisited.get(edge.getTarget().getIndex())) q.add(edge.getTarget());
+                        if(edge.isSwitchCase()) {
+                            if(val.getConstant() == edge.getCaseValue()) {
+                                isDefault = false;
+                                if(!isVisited.get(edge.getTarget().getIndex())) q.add(edge.getTarget());
+                            }
                         }
                     }
                     if(isDefault) {
