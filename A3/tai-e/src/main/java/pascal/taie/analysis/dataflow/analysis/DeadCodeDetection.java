@@ -132,7 +132,7 @@ public class DeadCodeDetection extends MethodAnalysis {
                 }
             }
         }
-        for(Stmt stmt : cfg.getNodes()) if(!isVisited.get(stmt.getIndex())) {
+        for(Stmt stmt : cfg.getNodes()) if(!isVisited.get(stmt.getIndex()) && !cfg.isExit(stmt)) {
             deadCode.add(stmt);
         }
 
