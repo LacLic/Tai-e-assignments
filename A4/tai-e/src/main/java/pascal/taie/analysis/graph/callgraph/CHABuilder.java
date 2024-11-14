@@ -30,7 +30,8 @@ import pascal.taie.language.classes.JClass;
 import pascal.taie.language.classes.JMethod;
 import pascal.taie.language.classes.Subsignature;
 
-import java.util.ArrayDeque;
+import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.Queue;
 import java.util.Set;
 
@@ -59,7 +60,26 @@ class CHABuilder implements CGBuilder<Invoke, JMethod> {
      */
     private Set<JMethod> resolve(Invoke callSite) {
         // TODO - finish me
-        return null;
+        Set<JMethod> res = new HashSet<>();
+        MethodRef methodRef = callSite.getMethodRef();
+        if(CallGraphs.getCallKind(callSite) == CallKind.STATIC) {
+            res.add(methodRef.getDeclaringClass().getDeclaredMethod(methodRef.getSubsignature()));
+        }else if(CallGraphs.getCallKind(callSite) == CallKind.SPECIAL) {
+            res.add(dispatch(methodRef.getDeclaringClass(), methodRef.getSubsignature()));
+        }else if(CallGraphs.getCallKind(callSite) == CallKind.INTERFACE || CallGraphs.getCallKind(callSite) == CallKind.VIRTUAL) {
+            Queue<JClass> q = new LinkedList<>();
+            q.add(methodRef.getDeclaringClass());
+            Subsignature subsignature = methodRef.getSubsignature();
+            while(!q.isEmpty()) {
+                JClass jc = q.poll();
+                hierarchy.getDirectSubclassesOf(jc).forEach((e) -> q.add(e));
+                hierarchy.getDirectSubinterfacesOf(jc).forEach((e) -> q.add(e));
+                res.add(dispatch(jc, subsignature));
+            }
+        }else {
+            assert(false);
+        }
+        return res;
     }
 
     /**
@@ -70,6 +90,15 @@ class CHABuilder implements CGBuilder<Invoke, JMethod> {
      */
     private JMethod dispatch(JClass jclass, Subsignature subsignature) {
         // TODO - finish me
-        return null;
+        JMethod res = jclass.getDeclaredMethod(subsignature);
+        if(res == null) {
+            JClass superClass = jclass.getSuperClass();
+            if(superClass == null) {
+                res = null;
+            }else {
+                res = dispatch(superClass, subsignature);
+            }
+        }
+        return res;
     }
 }
