@@ -22,13 +22,13 @@
 
 package pascal.taie.analysis.dataflow.inter;
 
-import pascal.taie.analysis.dataflow.fact.DataflowResult;
-import pascal.taie.analysis.graph.icfg.ICFG;
-import pascal.taie.util.collection.SetQueue;
-
+import java.util.HashSet;
 import java.util.Queue;
 import java.util.Set;
-import java.util.stream.Collectors;
+
+import pascal.taie.analysis.dataflow.fact.DataflowResult;
+import pascal.taie.analysis.graph.icfg.ICFG;
+import pascal.taie.analysis.graph.icfg.ICFGEdge;
 
 /**
  * Solver for inter-procedural data-flow analysis.
@@ -60,9 +60,37 @@ class InterSolver<Method, Node, Fact> {
 
     private void initialize() {
         // TODO - finish me
+        // class InterSolver<JMethod, Stmt, CPFact>;
+        // result.setOutFact(icfg.getEntryOf(method), analysis.newBoundaryFact(icfg));
+        for(Node node : icfg) {
+            result.setOutFact(node, analysis.newInitialFact());
+            result.setInFact(node, analysis.newInitialFact());
+        }
+        icfg.entryMethods().forEach(method -> result.setOutFact(icfg.getEntryOf(method), analysis.newBoundaryFact(icfg.getEntryOf(method))));
     }
 
     private void doSolve() {
         // TODO - finish me
+        Set<Node> worklist = new HashSet<>(icfg.getNodes());
+        Set<Node> buffer = new HashSet<>();
+        while(!worklist.isEmpty()) {
+            for(Node node : worklist) {
+                Fact new_in = result.getInFact(node);
+                for(ICFGEdge<Node> inEdge : icfg.getInEdgesOf(node)) {
+                    analysis.meetInto(analysis.transferEdge(inEdge, result.getOutFact(inEdge.getSource())), new_in);
+                }
+                result.setInFact(node, new_in);
+
+                Fact new_out = result.getOutFact(node);
+                if(analysis.transferNode(node, new_in, new_out)) {
+                    buffer.addAll(icfg.getSuccsOf(node));
+                }
+                result.setOutFact(node, new_out);
+            }
+            Set<Node> temp = worklist;
+            worklist = buffer;
+            buffer = temp;
+            buffer.clear();
+        }
     }
 }
