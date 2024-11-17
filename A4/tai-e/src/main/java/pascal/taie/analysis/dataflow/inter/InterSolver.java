@@ -25,6 +25,8 @@ package pascal.taie.analysis.dataflow.inter;
 import java.util.HashSet;
 import java.util.Queue;
 import java.util.Set;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 import pascal.taie.analysis.dataflow.fact.DataflowResult;
 import pascal.taie.analysis.graph.icfg.ICFG;
@@ -60,13 +62,16 @@ class InterSolver<Method, Node, Fact> {
 
     private void initialize() {
         // TODO - finish me
+        //                    Method, Node, Fact
         // class InterSolver<JMethod, Stmt, CPFact>;
-        // result.setOutFact(icfg.getEntryOf(method), analysis.newBoundaryFact(icfg));
         for(Node node : icfg) {
             result.setOutFact(node, analysis.newInitialFact());
             result.setInFact(node, analysis.newInitialFact());
         }
-        icfg.entryMethods().forEach(method -> result.setOutFact(icfg.getEntryOf(method), analysis.newBoundaryFact(icfg.getEntryOf(method))));
+        // icfg.entryMethods().forEach(method -> result.setOutFact(icfg.getEntryOf(method), analysis.newBoundaryFact(icfg.getEntryOf(method))));
+        for(Method method : icfg.entryMethods().collect(Collectors.toList())) {
+            result.setOutFact(icfg.getEntryOf(method), analysis.newBoundaryFact(icfg.getEntryOf(method)));
+        }
     }
 
     private void doSolve() {

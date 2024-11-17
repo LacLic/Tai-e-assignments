@@ -22,6 +22,11 @@
 
 package pascal.taie.analysis.graph.callgraph;
 
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.Queue;
+import java.util.Set;
+
 import pascal.taie.World;
 import pascal.taie.ir.proginfo.MethodRef;
 import pascal.taie.ir.stmt.Invoke;
@@ -29,11 +34,6 @@ import pascal.taie.language.classes.ClassHierarchy;
 import pascal.taie.language.classes.JClass;
 import pascal.taie.language.classes.JMethod;
 import pascal.taie.language.classes.Subsignature;
-
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.Queue;
-import java.util.Set;
 
 /**
  * Implementation of the CHA algorithm.
@@ -54,14 +54,16 @@ class CHABuilder implements CGBuilder<Invoke, JMethod> {
         // TODO - finish me
         Queue<JMethod> worklist = new LinkedList<>(); // WL
         Set<JMethod> isVisited = new HashSet<>();    // RM
+        worklist.add(entry);
         while(!worklist.isEmpty()) {
             JMethod thiz = worklist.poll();
             if(isVisited.contains(thiz)) continue;
 
             isVisited.add(thiz);
+            callGraph.addReachableMethod(thiz);
             for(Invoke callSite : callGraph.getCallSitesIn(thiz)) {
                 for(JMethod to : resolve(callSite)) {
-                    callGraph.addEdge(new Edge<Invoke,JMethod>(CallGraphs.getCallKind(callSite), callSite, to));
+                    callGraph.addEdge(new Edge<>(CallGraphs.getCallKind(callSite), callSite, to));
                     worklist.add(to);
                 }
             }
