@@ -90,7 +90,11 @@ class CHABuilder implements CGBuilder<Invoke, JMethod> {
                 JClass jc = q.poll();
                 hierarchy.getDirectSubclassesOf(jc).forEach((e) -> q.add(e));
                 hierarchy.getDirectSubinterfacesOf(jc).forEach((e) -> q.add(e));
-                res.add(dispatch(jc, subsignature));
+                hierarchy.getDirectImplementorsOf(jc).forEach((e) -> q.add(e));
+                JMethod dispatched_method = dispatch(jc, subsignature);
+                if(dispatched_method != null) {
+                    res.add(dispatched_method);
+                }
             }
         }else {
             assert(false);
@@ -107,7 +111,7 @@ class CHABuilder implements CGBuilder<Invoke, JMethod> {
     private JMethod dispatch(JClass jclass, Subsignature subsignature) {
         // TODO - finish me
         JMethod res = jclass.getDeclaredMethod(subsignature);
-        if(res == null) {
+        if(res == null || res.isAbstract()) {
             JClass superClass = jclass.getSuperClass();
             if(superClass == null) {
                 res = null;
