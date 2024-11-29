@@ -22,32 +22,28 @@
 
 package pascal.taie.analysis.pta.ci;
 
+import java.util.Set;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
 import pascal.taie.World;
 import pascal.taie.analysis.graph.callgraph.CallGraphs;
-import pascal.taie.analysis.graph.callgraph.CallKind;
 import pascal.taie.analysis.graph.callgraph.DefaultCallGraph;
-import pascal.taie.analysis.graph.callgraph.Edge;
 import pascal.taie.analysis.pta.core.heap.HeapModel;
 import pascal.taie.analysis.pta.core.heap.Obj;
-import pascal.taie.ir.exp.InvokeExp;
 import pascal.taie.ir.exp.Var;
-import pascal.taie.ir.proginfo.MethodRef;
 import pascal.taie.ir.stmt.Copy;
+import pascal.taie.ir.stmt.DefinitionStmt;
 import pascal.taie.ir.stmt.Invoke;
-import pascal.taie.ir.stmt.LoadArray;
 import pascal.taie.ir.stmt.LoadField;
 import pascal.taie.ir.stmt.New;
+import pascal.taie.ir.stmt.Stmt;
 import pascal.taie.ir.stmt.StmtVisitor;
-import pascal.taie.ir.stmt.StoreArray;
 import pascal.taie.ir.stmt.StoreField;
 import pascal.taie.language.classes.ClassHierarchy;
 import pascal.taie.language.classes.JMethod;
-import pascal.taie.util.AnalysisException;
 import pascal.taie.language.type.Type;
-
-import java.util.List;
 
 class Solver {
 
@@ -64,6 +60,8 @@ class Solver {
     private StmtProcessor stmtProcessor;
 
     private ClassHierarchy hierarchy;
+
+    private Set<JMethod> isVisited;
 
     Solver(HeapModel heapModel) {
         this.heapModel = heapModel;
@@ -97,6 +95,25 @@ class Solver {
      */
     private void addReachable(JMethod method) {
         // TODO - finish me
+        if(!isVisited.contains(method)) {
+            isVisited.add(method);
+            for(Stmt stmt : method.getIR().getStmts()) {
+                // if(stmt instanceof Invoke ivk) {
+                //     if(ivk.isStatic()) {
+                        
+                //     }
+                // }else if(stmt instanceof New nStmt) {
+                //     Pointer ptr = pointerFlowGraph.getVarPtr(nStmt.getLValue());
+                //     workList.addEntry(ptr, ptr.getPointsToSet());
+                // }else if(stmt instanceof Copy cp) {
+                //     addPFGEdge(
+                //         pointerFlowGraph.getVarPtr(cp.getLValue()),
+                //         pointerFlowGraph.getVarPtr(cp.getRValue())
+                //     );
+                // }
+                stmt.accept(stmtProcessor);
+            }
+        }
     }
 
     /**
@@ -105,6 +122,43 @@ class Solver {
     private class StmtProcessor implements StmtVisitor<Void> {
         // TODO - if you choose to implement addReachable()
         //  via visitor pattern, then finish me
+        @Override
+        public Void visit(Invoke ivk) {
+            if(ivk.isStatic()) {
+
+            }
+            return null;
+        }
+
+        @Override
+        public Void visit(New news) {
+            Pointer ptr = pointerFlowGraph.getVarPtr(news.getLValue());
+            workList.addEntry(ptr, ptr.getPointsToSet());
+
+            return null;
+        }
+
+        @Override
+        public Void visit(Copy cp) {
+            addPFGEdge(
+                pointerFlowGraph.getVarPtr(cp.getLValue()),
+                pointerFlowGraph.getVarPtr(cp.getRValue())
+            );
+            return null;
+        }
+
+        @Override
+        public Void visit(LoadField ld) {
+            
+            return null;
+        }
+
+        @Override
+        public Void visit(StoreField st) {
+            
+            return null;
+        }
+
     }
 
     /**
