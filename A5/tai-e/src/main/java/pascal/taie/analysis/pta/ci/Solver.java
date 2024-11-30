@@ -22,7 +22,6 @@
 
 package pascal.taie.analysis.pta.ci;
 
-import java.lang.constant.DirectMethodHandleDesc;
 import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
@@ -137,13 +136,13 @@ class Solver {
                     int argc = tar.getParamCount();
                     assert argc == ivk.getRValue().getArgCount();
                     for(int i = 0; i < argc; i++) {
-                        pointerFlowGraph.addEdge(
+                        addPFGEdge(
                             pointerFlowGraph.getVarPtr(ivk.getRValue().getArg(i)),
                             pointerFlowGraph.getVarPtr(tar.getIR().getParam(i))
                         );
                     }
                     tar.getIR().getReturnVars().forEach(retVar ->
-                        pointerFlowGraph.addEdge(
+                        addPFGEdge(
                             pointerFlowGraph.getVarPtr(retVar),
                             pointerFlowGraph.getVarPtr(ivk.getLValue())
                         )
@@ -229,7 +228,7 @@ class Solver {
      */
     private void processCall(Var var, Obj recv) {
         // TODO - finish me
-        for
+        
     }
 
     /**
