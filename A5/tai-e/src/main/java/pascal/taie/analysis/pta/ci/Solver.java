@@ -22,6 +22,7 @@
 
 package pascal.taie.analysis.pta.ci;
 
+import java.lang.constant.DirectMethodHandleDesc;
 import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
@@ -29,12 +30,13 @@ import org.apache.logging.log4j.Logger;
 
 import pascal.taie.World;
 import pascal.taie.analysis.graph.callgraph.CallGraphs;
+import pascal.taie.analysis.graph.callgraph.CallKind;
 import pascal.taie.analysis.graph.callgraph.DefaultCallGraph;
+import pascal.taie.analysis.graph.callgraph.Edge;
 import pascal.taie.analysis.pta.core.heap.HeapModel;
 import pascal.taie.analysis.pta.core.heap.Obj;
 import pascal.taie.ir.exp.Var;
 import pascal.taie.ir.stmt.Copy;
-import pascal.taie.ir.stmt.DefinitionStmt;
 import pascal.taie.ir.stmt.Invoke;
 import pascal.taie.ir.stmt.LoadField;
 import pascal.taie.ir.stmt.New;
@@ -62,6 +64,8 @@ class Solver {
     private ClassHierarchy hierarchy;
 
     private Set<JMethod> isVisited;
+
+    private Set<Stmt> stmts;
 
     Solver(HeapModel heapModel) {
         this.heapModel = heapModel;
@@ -97,22 +101,24 @@ class Solver {
         // TODO - finish me
         if(!isVisited.contains(method)) {
             isVisited.add(method);
-            for(Stmt stmt : method.getIR().getStmts()) {
-                // if(stmt instanceof Invoke ivk) {
-                //     if(ivk.isStatic()) {
+            // for(Stmt stmt : method.getIR().getStmts()) {
+            //     if(stmt instanceof Invoke ivk) {
+            //         if(ivk.isStatic()) {
                         
-                //     }
-                // }else if(stmt instanceof New nStmt) {
-                //     Pointer ptr = pointerFlowGraph.getVarPtr(nStmt.getLValue());
-                //     workList.addEntry(ptr, ptr.getPointsToSet());
-                // }else if(stmt instanceof Copy cp) {
-                //     addPFGEdge(
-                //         pointerFlowGraph.getVarPtr(cp.getLValue()),
-                //         pointerFlowGraph.getVarPtr(cp.getRValue())
-                //     );
-                // }
+            //         }
+            //     }else if(stmt instanceof New nStmt) {
+            //         Pointer ptr = pointerFlowGraph.getVarPtr(nStmt.getLValue());
+            //         workList.addEntry(ptr, ptr.getPointsToSet());
+            //     }else if(stmt instanceof Copy cp) {
+            //         addPFGEdge(
+            //             pointerFlowGraph.getVarPtr(cp.getLValue()),
+            //             pointerFlowGraph.getVarPtr(cp.getRValue())
+            //         );
+            //     }
+            // }
+            method.getIR().getStmts().forEach((stmt) -> {
                 stmt.accept(stmtProcessor);
-            }
+            });
         }
     }
 
@@ -125,17 +131,35 @@ class Solver {
         @Override
         public Void visit(Invoke ivk) {
             if(ivk.isStatic()) {
-
+                JMethod tar = resolveCallee(null, ivk);
+                if(callGraph.addEdge(new Edge<>(CallKind.STATIC, ivk, tar))) {
+                    addReachable(tar);
+                    int argc = tar.getParamCount();
+                    assert argc == ivk.getRValue().getArgCount();
+                    for(int i = 0; i < argc; i++) {
+                        pointerFlowGraph.addEdge(
+                            pointerFlowGraph.getVarPtr(ivk.getRValue().getArg(i)),
+                            pointerFlowGraph.getVarPtr(tar.getIR().getParam(i))
+                        );
+                    }
+                    tar.getIR().getReturnVars().forEach(retVar ->
+                        pointerFlowGraph.addEdge(
+                            pointerFlowGraph.getVarPtr(retVar),
+                            pointerFlowGraph.getVarPtr(ivk.getLValue())
+                        )
+                    );
+                    
+                }
             }
-            return null;
+            return visitDefault(ivk);
         }
 
         @Override
-        public Void visit(New news) {
-            Pointer ptr = pointerFlowGraph.getVarPtr(news.getLValue());
-            workList.addEntry(ptr, ptr.getPointsToSet());
+        public Void visit(New nw) {
+            Pointer ptr = pointerFlowGraph.getVarPtr(nw.getLValue());
+            workList.addEntry(ptr, new PointsToSet(heapModel.getObj(nw)));
 
-            return null;
+            return visitDefault(nw);
         }
 
         @Override
@@ -144,19 +168,32 @@ class Solver {
                 pointerFlowGraph.getVarPtr(cp.getLValue()),
                 pointerFlowGraph.getVarPtr(cp.getRValue())
             );
-            return null;
+
+            return visitDefault(cp);
         }
 
         @Override
         public Void visit(LoadField ld) {
-            
-            return null;
+            if(ld.isStatic()) {
+                addPFGEdge(
+                    pointerFlowGraph.getStaticField(ld.getFieldRef().resolve()),
+                    pointerFlowGraph.getVarPtr(ld.getLValue())
+                );
+            }
+
+            return visitDefault(ld);
         }
 
         @Override
         public Void visit(StoreField st) {
+            if(st.isStatic()) {
+                addPFGEdge(
+                    pointerFlowGraph.getVarPtr(st.getRValue()),
+                    pointerFlowGraph.getStaticField(st.getFieldRef().resolve())
+                );
+            }
             
-            return null;
+            return visitDefault(st);
         }
 
     }
@@ -192,6 +229,7 @@ class Solver {
      */
     private void processCall(Var var, Obj recv) {
         // TODO - finish me
+        for
     }
 
     /**
