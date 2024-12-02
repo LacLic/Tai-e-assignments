@@ -8,7 +8,11 @@ A3: Accepted
 
 A4: Accepted
 
-A5 and later: Unassigned
+A5: Accepted
+
+A6 and A7: WIP
+
+A8: Unassigned
 
 ------
 
