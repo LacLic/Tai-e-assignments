@@ -297,25 +297,27 @@ class Solver {
             else if(invoke.isVirtual()) callKind = CallKind.VIRTUAL;
             else if(invoke.isInterface()) callKind = CallKind.INTERFACE;
 
-            if(callGraph.addEdge(new Edge<>(callKind, invoke, method))) {
-                addReachable(method);
-                int argc = method.getParamCount();
-                assert argc == invoke.getRValue().getArgCount();
-                for(int i = 0; i < argc; i++) {
-                    addPFGEdge(
-                        pointerFlowGraph.getVarPtr(invoke.getRValue().getArg(i)),
-                        pointerFlowGraph.getVarPtr(method.getIR().getParam(i))
-                    );
-                }
-                method.getIR().getReturnVars().forEach(retVar -> {
-                    Var lVar = invoke.getLValue();
-                    if(lVar != null){
-                        addPFGEdge( 
-                            pointerFlowGraph.getVarPtr(retVar),
-                            pointerFlowGraph.getVarPtr(lVar)
+            if(callKind != null) {
+                if(callGraph.addEdge(new Edge<>(callKind, invoke, method))) {
+                    addReachable(method);
+                    int argc = method.getParamCount();
+                    assert argc == invoke.getRValue().getArgCount();
+                    for(int i = 0; i < argc; i++) {
+                        addPFGEdge(
+                            pointerFlowGraph.getVarPtr(invoke.getRValue().getArg(i)),
+                            pointerFlowGraph.getVarPtr(method.getIR().getParam(i))
                         );
-                    }   
-                });
+                    }
+                    method.getIR().getReturnVars().forEach(retVar -> {
+                        Var lVar = invoke.getLValue();
+                        if(lVar != null){
+                            addPFGEdge( 
+                                pointerFlowGraph.getVarPtr(retVar),
+                                pointerFlowGraph.getVarPtr(lVar)
+                            );
+                        }   
+                    });
+                }
             }
         });
     }
