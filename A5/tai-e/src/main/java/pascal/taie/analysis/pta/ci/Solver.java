@@ -141,12 +141,16 @@ class Solver {
                         );
                     }
                     method.getIR().getReturnVars().forEach(retVar -> {
-                        addPFGEdge(
-                            pointerFlowGraph.getVarPtr(retVar),
-                            pointerFlowGraph.getVarPtr(ivk.getLValue())
-                        );
+                        Var lVar = ivk.getLValue();
+                        if(lVar != null){
+                            addPFGEdge( 
+                                pointerFlowGraph.getVarPtr(retVar),
+                                pointerFlowGraph.getVarPtr(lVar)
+                            );
+                        }   
                     });
                 }
+                
             }
 
             return visitDefault(ivk);
