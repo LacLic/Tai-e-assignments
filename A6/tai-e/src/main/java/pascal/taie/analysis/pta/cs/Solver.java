@@ -112,6 +112,12 @@ class Solver {
      */
     private void addReachable(CSMethod csMethod) {
         // TODO - finish me
+        if(!callGraph.contains(csMethod)) {
+            callGraph.addReachableMethod(csMethod);
+            csMethod.getMethod().getIR().getStmts().forEach((stmt) -> {
+                stmt.accept(new StmtProcessor(csMethod));
+            });
+        }
     }
 
     /**
@@ -130,6 +136,60 @@ class Solver {
 
         // TODO - if you choose to implement addReachable()
         //  via visitor pattern, then finish me
+        @Override
+        public Void visit(Invoke ivk) {
+            if(ivk.isStatic()) {
+                doProcessCall(
+                    csManager.getCSCallSite(context, ivk),
+                    resolveCallee(null, ivk),
+                    CallKind.STATIC
+                );
+            }
+
+            return visitDefault(ivk);
+        }
+
+        @Override
+        public Void visit(New nw) {
+            Pointer ptr = csManager.getCSVar(this.csMethod.getContext(), nw.getLValue());
+            workList.addEntry(ptr, PointsToSetFactory.make());
+
+            return visitDefault(nw);
+        }
+
+        @Override
+        public Void visit(Copy cp) {
+            addPFGEdge(
+                csManager.getCSVar(this.csMethod.getContext(), cp.getRValue()),
+                csManager.getCSVar(this.csMethod.getContext(), cp.getLValue())
+            );
+
+            return visitDefault(cp);
+        }
+
+        @Override
+        public Void visit(LoadField ld) {
+            if(ld.isStatic()) {
+                addPFGEdge(
+                    csManager.getStaticField(ld.getFieldRef().resolve()),
+                    csManager.getCSVar(this.csMethod.getContext(), ld.getLValue())
+                );
+            }
+
+            return visitDefault(ld);
+        }
+
+        @Override
+        public Void visit(StoreField st) {
+            if(st.isStatic()) {
+                addPFGEdge(
+                    csManager.getCSVar(this.csMethod.getContext(), st.getRValue()),
+                    csManager.getStaticField(st.getFieldRef().resolve())
+                );
+            }
+            
+            return visitDefault(st);
+        }
     }
 
     /**
@@ -155,6 +215,31 @@ class Solver {
         return null;
     }
 
+    private void doProcessCall(CSCallSite csCallSite, JMethod callee, CallKind callKind) {
+        Context ct = contextSelector.selectContext(csCallSite, callee);
+        CSMethod csCallee = csManager.getCSMethod(ct, callee);
+        if(callGraph.addEdge(new Edge<>(callKind, csCallSite, csCallee))) {
+            addReachable(csCallee);
+            int argc = callee.getParamCount();
+            assert argc == csCallSite.getCallSite().getRValue().getArgCount();
+            for(int i = 0; i < argc; i++) {
+                addPFGEdge(
+                    csManager.getCSVar(csCallSite.getContext(), csCallSite.getCallSite().getRValue().getArg(i)),
+                    csManager.getCSVar(ct, callee.getIR().getParam(i))
+                );
+            }
+            callee.getIR().getReturnVars().forEach(retVar -> {
+                Var lVar = csCallSite.getCallSite().getLValue();
+                if(lVar != null){
+                    addPFGEdge( 
+                        csManager.getCSVar(ct, retVar),
+                        csManager.getCSVar(csCallSite.getContext(), lVar)
+                    );
+                }   
+            });
+        }
+    }
+
     /**
      * Processes instance calls when points-to set of the receiver variable changes.
      *
@@ -163,6 +248,7 @@ class Solver {
      */
     private void processCall(CSVar recv, CSObj recvObj) {
         // TODO - finish me
+        workList.addEntry(recv, null);
     }
 
     /**
