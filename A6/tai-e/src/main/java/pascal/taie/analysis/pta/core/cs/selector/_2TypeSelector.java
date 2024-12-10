@@ -31,7 +31,6 @@ import pascal.taie.analysis.pta.core.cs.element.CSMethod;
 import pascal.taie.analysis.pta.core.cs.element.CSObj;
 import pascal.taie.analysis.pta.core.heap.Obj;
 import pascal.taie.language.classes.JMethod;
-import pascal.taie.language.type.Type;
 
 /**
  * Implementation of 2-type sensitivity.
@@ -52,7 +51,7 @@ public class _2TypeSelector implements ContextSelector {
     @Override
     public Context selectContext(CSCallSite callSite, CSObj recv, JMethod callee) {
         // TODO - finish me
-        Context context = callSite.getContext();
+        Context context = recv.getContext();
         int n = context.getLength();
         LinkedList<Object> res = new LinkedList<>();
         for(int i = Math.max(0, n - 1); i < n; i++) {
@@ -66,6 +65,6 @@ public class _2TypeSelector implements ContextSelector {
     public Context selectHeapContext(CSMethod method, Obj obj) {
         // TODO - finish me
         Context context = method.getContext();
-        return context == null ? getEmptyContext() : ListContext.make(context);
+        return context.getLength() == 0 ? getEmptyContext() : ListContext.make(context.getElementAt(context.getLength() - 1));
     }
 }
