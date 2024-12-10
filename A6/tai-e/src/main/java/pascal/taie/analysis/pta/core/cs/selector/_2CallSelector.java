@@ -52,7 +52,7 @@ public class _2CallSelector implements ContextSelector {
             res.add(context.getElementAt(i));
         }
         res.add(callSite.getCallSite());
-        return ListContext.make(res);
+        return ListContext.make(res.toArray());
     }
 
     @Override

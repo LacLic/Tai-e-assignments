@@ -59,7 +59,7 @@ public class _2TypeSelector implements ContextSelector {
             res.add(context.getElementAt(i));
         }
         res.add(recv.getObject().getContainerType());
-        return ListContext.make(res);
+        return ListContext.make(res.toArray());
     }
 
     @Override

@@ -156,7 +156,7 @@ class Solver {
         @Override
         public Void visit(New nw) {
             Pointer ptr = csManager.getCSVar(this.csMethod.getContext(), nw.getLValue());
-            workList.addEntry(ptr, PointsToSetFactory.make());
+            workList.addEntry(ptr, PointsToSetFactory.make(csManager.getCSObj(this.context, heapModel.getObj(nw))));
 
             return visitDefault(nw);
         }
@@ -319,12 +319,16 @@ class Solver {
             JMethod callee = resolveCallee(recvObj, callSite);
             CallKind callKind = null;
 
-            if(callSite.isDynamic()) callKind = CallKind.DYNAMIC;
+            if(callSite.isVirtual()) callKind = CallKind.VIRTUAL;
             else if(callSite.isInterface()) callKind = CallKind.INTERFACE;
             else if(callSite.isSpecial()) callKind = CallKind.SPECIAL;
 
             CSCallSite csCallSite = csManager.getCSCallSite(recv.getContext(), callSite);
             Context ct = contextSelector.selectContext(csCallSite, callee);
+            workList.addEntry(
+                csManager.getCSVar(ct, callee.getIR().getThis()),
+                PointsToSetFactory.make(recvObj)
+            );
             doProcessCall(
                 csCallSite,
                 callee,

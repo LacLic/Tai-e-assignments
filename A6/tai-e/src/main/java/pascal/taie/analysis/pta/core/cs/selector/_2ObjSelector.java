@@ -58,7 +58,7 @@ public class _2ObjSelector implements ContextSelector {
             res.add(context.getElementAt(i));
         }
         res.add(recv.getObject());
-        return ListContext.make(res);
+        return ListContext.make(res.toArray());
     }
 
     @Override
