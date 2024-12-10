@@ -144,9 +144,8 @@ class Solver {
                 Context ct = contextSelector.selectContext(csCallSite, callee);
                 doProcessCall(
                     csCallSite,
-                    callee,
-                    CallKind.STATIC,
-                    ct
+                    csManager.getCSMethod(ct, callee),
+                    CallKind.STATIC
                 );
             }
 
@@ -155,8 +154,10 @@ class Solver {
 
         @Override
         public Void visit(New nw) {
-            Pointer ptr = csManager.getCSVar(this.csMethod.getContext(), nw.getLValue());
-            workList.addEntry(ptr, PointsToSetFactory.make(csManager.getCSObj(this.context, heapModel.getObj(nw))));
+            Pointer ptr = csManager.getCSVar(context, nw.getLValue());
+            Obj newObj = heapModel.getObj(nw);
+            Context heapContext = contextSelector.selectHeapContext(csMethod, newObj);
+            workList.addEntry(ptr, PointsToSetFactory.make(csManager.getCSObj(heapContext, newObj)));
 
             return visitDefault(nw);
         }
@@ -164,8 +165,8 @@ class Solver {
         @Override
         public Void visit(Copy cp) {
             addPFGEdge(
-                csManager.getCSVar(this.csMethod.getContext(), cp.getRValue()),
-                csManager.getCSVar(this.csMethod.getContext(), cp.getLValue())
+                csManager.getCSVar(context, cp.getRValue()),
+                csManager.getCSVar(context, cp.getLValue())
             );
 
             return visitDefault(cp);
@@ -176,7 +177,7 @@ class Solver {
             if(ld.isStatic()) {
                 addPFGEdge(
                     csManager.getStaticField(ld.getFieldRef().resolve()),
-                    csManager.getCSVar(this.csMethod.getContext(), ld.getLValue())
+                    csManager.getCSVar(context, ld.getLValue())
                 );
             }
 
@@ -187,7 +188,7 @@ class Solver {
         public Void visit(StoreField st) {
             if(st.isStatic()) {
                 addPFGEdge(
-                    csManager.getCSVar(this.csMethod.getContext(), st.getRValue()),
+                    csManager.getCSVar(context, st.getRValue()),
                     csManager.getStaticField(st.getFieldRef().resolve())
                 );
             }
@@ -280,8 +281,9 @@ class Solver {
         return delta;
     }
 
-    private void doProcessCall(CSCallSite csCallSite, JMethod callee, CallKind callKind, Context ct) {
-        CSMethod csCallee = csManager.getCSMethod(ct, callee);
+    private void doProcessCall(CSCallSite csCallSite, CSMethod csCallee, CallKind callKind) {
+        Context ct = csCallee.getContext();
+        JMethod callee = csCallee.getMethod();
 
         if(callKind != null) {
             if(callGraph.addEdge(new Edge<>(callKind, csCallSite, csCallee))) {
@@ -294,15 +296,15 @@ class Solver {
                         csManager.getCSVar(ct, callee.getIR().getParam(i))
                     );
                 }
-                callee.getIR().getReturnVars().forEach(retVar -> {
-                    Var lVar = csCallSite.getCallSite().getLValue();
-                    if(lVar != null){
+                Var lVar = csCallSite.getCallSite().getLValue();
+                if(lVar != null) {
+                    callee.getIR().getReturnVars().forEach(retVar -> {
                         addPFGEdge( 
                             csManager.getCSVar(ct, retVar),
                             csManager.getCSVar(csCallSite.getContext(), lVar)
                         );
-                    }   
-                });
+                    });
+                }
             }
         }
     }
@@ -324,16 +326,15 @@ class Solver {
             else if(callSite.isSpecial()) callKind = CallKind.SPECIAL;
 
             CSCallSite csCallSite = csManager.getCSCallSite(recv.getContext(), callSite);
-            Context ct = contextSelector.selectContext(csCallSite, callee);
+            Context ct = contextSelector.selectContext(csCallSite, recvObj, callee);
             workList.addEntry(
                 csManager.getCSVar(ct, callee.getIR().getThis()),
                 PointsToSetFactory.make(recvObj)
             );
             doProcessCall(
                 csCallSite,
-                callee,
-                callKind,
-                ct
+                csManager.getCSMethod(ct, callee),
+                callKind
             );
         });
     }
