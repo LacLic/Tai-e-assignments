@@ -22,6 +22,8 @@
 
 package pascal.taie.analysis.pta.core.cs.selector;
 
+import java.util.LinkedList;
+
 import pascal.taie.analysis.pta.core.cs.context.Context;
 import pascal.taie.analysis.pta.core.cs.context.ListContext;
 import pascal.taie.analysis.pta.core.cs.element.CSCallSite;
@@ -43,18 +45,26 @@ public class _2ObjSelector implements ContextSelector {
     @Override
     public Context selectContext(CSCallSite callSite, JMethod callee) {
         // TODO - finish me
-        return null;
+        return callSite.getContext();
     }
 
     @Override
     public Context selectContext(CSCallSite callSite, CSObj recv, JMethod callee) {
         // TODO - finish me
-        return null;
+        Context context = callSite.getContext();
+        int n = context.getLength();
+        LinkedList<Object> res = new LinkedList<>();
+        for(int i = Math.max(0, n - 1); i < n; i++) {
+            res.add(context.getElementAt(i));
+        }
+        res.add(recv.getObject());
+        return ListContext.make(res);
     }
 
     @Override
     public Context selectHeapContext(CSMethod method, Obj obj) {
         // TODO - finish me
-        return null;
+        Context context = method.getContext();
+        return context == null ? getEmptyContext() : ListContext.make(context);
     }
 }
