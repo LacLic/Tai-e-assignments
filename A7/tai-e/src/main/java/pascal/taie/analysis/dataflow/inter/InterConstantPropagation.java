@@ -27,6 +27,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import heros.solver.Pair;
 import pascal.taie.World;
 import pascal.taie.analysis.dataflow.analysis.constprop.CPFact;
 import pascal.taie.analysis.dataflow.analysis.constprop.ConstantPropagation;
@@ -40,6 +41,8 @@ import pascal.taie.analysis.pta.PointerAnalysisResult;
 import pascal.taie.analysis.pta.core.heap.Obj;
 import pascal.taie.config.AnalysisConfig;
 import pascal.taie.ir.IR;
+import pascal.taie.ir.exp.ArrayAccess;
+import pascal.taie.ir.exp.InstanceFieldAccess;
 import pascal.taie.ir.exp.InvokeExp;
 import pascal.taie.ir.exp.LValue;
 import pascal.taie.ir.exp.RValue;
@@ -63,41 +66,61 @@ public class InterConstantPropagation extends
 
     public static Map<Obj, Set<Var>> objToPtr = new HashMap<>();
 
-    public static Map<FieldRef, Set<StoreField>> objFiledToStore = new HashMap<>();
+    // public static Map<Var, Set<Var>> alias = new HashMap<>();
+
+    public static Map<Pair<Obj, FieldRef>, Set<StoreField>> objFiledToStore = new HashMap<>();
+    //                   <Base, Filed>
 
     public static Map<FieldRef, Set<StoreField>> staticFiledToStore = new HashMap<>();
+
+    public static Map<Obj, Set<StoreArray>> arrayToStore = new HashMap<>();
+
+    public static PointerAnalysisResult pta;
 
     public InterConstantPropagation(AnalysisConfig config) {
         super(config);
         cp = new ConstantPropagation(new AnalysisConfig(ConstantPropagation.ID));
     }
 
-    private void doStaticFiledStore(StoreField sf) {
+    private void getStaticFiledStore(StoreField sf) {
         // When analyzing a load statement of a static field, say x = T.f;, you just need to look up the store statements of the same field (T.f) in the program, and meet the stored values to the LHS variable (x) of the load statement.
         FieldRef fieldRef = sf.getLValue().getFieldRef();
-        Set<StoreField> set = staticFiledToVal.getOrDefault(fieldRef, new HashSet<StoreField>());
-        // lValue = cp.meetValue(lValue, );
-        staticFiledToVal.put(fieldRef, lValue);
+        Set<StoreField> set = staticFiledToStore.getOrDefault(fieldRef, new HashSet<>());
+        set.add(sf);
+        staticFiledToStore.put(fieldRef, set);
     }
 
-    private void doInstanceFieldStore(Stmt stmt) {
+    private void getInstanceFieldStore(StoreField sf) {
         // When analyzing an instance field load, say L, we look up the store statements which modify the aliases of the instance field and meet the stored values to the LHS variable of L as shown below
+        if(sf.getFieldAccess() instanceof InstanceFieldAccess ifa) {
+            pta.getPointsToSet(ifa.getBase()).forEach(obj -> {
+                Pair<Obj, FieldRef> objField = new Pair<>(obj, ifa.getFieldRef());
+                Set<StoreField> set = objFiledToStore.getOrDefault(objField, new HashSet<>());
+                set.add(sf);
+                objFiledToStore.put(objField, set);
+            });
+        }
     }
     
-    private void doArrayStore(Stmt stmt) {
-        
+    private void getArrayStore(StoreArray sa) {
+        ArrayAccess aa = sa.getArrayAccess();
+        pta.getPointsToSet(aa.getBase()).forEach(obj -> {
+            Set<StoreArray> set = arrayToStore.getOrDefault(obj, new HashSet<>());
+            set.add(sa);
+            arrayToStore.put(obj, set);
+        });
     }
 
     private void doStore() {
         icfg.getNodes().forEach(stmt -> {
             if(stmt instanceof StoreField sf) {
                 if(sf.isStatic()) {
-                    doStaticFiledStore(sf);
+                    getStaticFiledStore(sf);
                 }else {
-                    doInstanceFieldStore(sf);
+                    getInstanceFieldStore(sf);
                 }
             }else if(stmt instanceof StoreArray sa) {
-                doArrayStore(sa);
+                getArrayStore(sa);
             }
         });
     }
@@ -130,13 +153,25 @@ public class InterConstantPropagation extends
     /**
      * @return alias list map, one's alias can be itself.
      */
-    private void getAliases(PointerAnalysisResult pta) {
+    private void getAliases() {
         pta.getCSVars().forEach(csVar -> {
             csVar.getPointsToSet().forEach(csObj -> {
                 Set<Var> tar = objToPtr.getOrDefault(csObj.getObject(), new HashSet<>());
                 tar.add(csVar.getVar());
+                objToPtr.put(csObj.getObject(), tar);
             });
         });
+
+        // objToPtr.forEach((obj, set) -> {
+        //     set.forEach(i -> {
+        //         set.forEach(j -> {
+        //             alias.getOrDefault(i, new HashSet<>()).add(j);
+        //             alias.put(...)
+        //             alias.getOrDefault(j, new HashSet<>()).add(i);
+        //             alias.put(...)
+        //         });
+        //     });
+        // });
     }
 
     // private void doStaticFiledStore() {
@@ -151,9 +186,9 @@ public class InterConstantPropagation extends
     @Override
     protected void initialize() {
         String ptaId = getOptions().getString("pta");
-        PointerAnalysisResult pta = World.get().getResult(ptaId);
+        pta = World.get().getResult(ptaId);
         // You can do initialization work here
-        getAliases(pta);
+        getAliases();
         doStore();
     }
 

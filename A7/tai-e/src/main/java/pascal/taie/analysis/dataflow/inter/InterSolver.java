@@ -27,10 +27,19 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import pascal.taie.analysis.dataflow.analysis.constprop.CPFact;
+import pascal.taie.analysis.dataflow.analysis.constprop.ConstantPropagation;
+import pascal.taie.analysis.dataflow.analysis.constprop.Value;
 import pascal.taie.analysis.dataflow.fact.DataflowResult;
+import static pascal.taie.analysis.dataflow.inter.InterConstantPropagation.staticFiledToStore;
 import pascal.taie.analysis.graph.icfg.ICFG;
 import pascal.taie.analysis.graph.icfg.ICFGEdge;
 import pascal.taie.config.AnalysisConfig;
+import pascal.taie.ir.exp.Var;
+import pascal.taie.ir.proginfo.FieldRef;
+import pascal.taie.ir.stmt.LoadField;
+import pascal.taie.ir.stmt.Stmt;
+import pascal.taie.ir.stmt.StoreField;
 
 /**
  * Solver for inter-procedural data-flow analysis.
@@ -47,10 +56,13 @@ class InterSolver<Method, Node, Fact> {
 
     private Queue<Node> workList;
 
+    // private final ConstantPropagation cp;
+
     InterSolver(InterDataflowAnalysis<Node, Fact> analysis,
                 ICFG<Method, Node> icfg) {
         this.analysis = analysis;
         this.icfg = icfg;
+        // cp = new ConstantPropagation(new AnalysisConfig(ConstantPropagation.ID));
     }
 
     DataflowResult<Node, Fact> solve() {
@@ -72,6 +84,20 @@ class InterSolver<Method, Node, Fact> {
         }
     }
 
+    // private void doSolveInMid(Stmt stmt, CPFact in) {
+    //     if(stmt instanceof LoadField lf) {
+    //         FieldRef fieldRef = lf.getRValue().getFieldRef();
+    //         if(lf.isStatic()) {
+    //             Value val = Value.getUndef();
+    //             for(StoreField sf : staticFiledToStore.getOrDefault(fieldRef, new HashSet<>())) {
+    //                 Var var = sf.getRValue();
+    //                 val = cp.meetValue(val, in.get(var));
+    //             }
+
+    //         }
+    //     }
+    // }
+
     private void doSolve() {
         // TODO - finish me
         Set<Node> worklist = new HashSet<>(icfg.getNodes());
@@ -83,6 +109,9 @@ class InterSolver<Method, Node, Fact> {
                     analysis.meetInto(analysis.transferEdge(inEdge, result.getOutFact(inEdge.getSource())), new_in);
                 }
                 result.setInFact(node, new_in);
+
+                // if(node.getClass() == Stmt)
+                // doSolveInMid((Stmt) node, (CPFact) new_in);
                 
                 Fact new_out = result.getOutFact(node);
                 if(analysis.transferNode(node, new_in, new_out)) {

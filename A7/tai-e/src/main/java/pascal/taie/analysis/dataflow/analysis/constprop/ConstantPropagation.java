@@ -22,8 +22,15 @@
 
 package pascal.taie.analysis.dataflow.analysis.constprop;
 
+import java.util.HashSet;
+
 import pascal.taie.analysis.dataflow.analysis.AbstractDataflowAnalysis;
+import static pascal.taie.analysis.dataflow.inter.InterConstantPropagation.arrayToStore;
+import static pascal.taie.analysis.dataflow.inter.InterConstantPropagation.objFiledToStore;
+import static pascal.taie.analysis.dataflow.inter.InterConstantPropagation.pta;
+import static pascal.taie.analysis.dataflow.inter.InterConstantPropagation.staticFiledToStore;
 import pascal.taie.analysis.graph.cfg.CFG;
+import pascal.taie.analysis.pta.core.heap.Obj;
 import pascal.taie.config.AnalysisConfig;
 import pascal.taie.ir.exp.ArithmeticExp;
 import pascal.taie.ir.exp.ArrayAccess;
@@ -32,14 +39,21 @@ import pascal.taie.ir.exp.BitwiseExp;
 import pascal.taie.ir.exp.ConditionExp;
 import pascal.taie.ir.exp.Exp;
 import pascal.taie.ir.exp.FieldAccess;
+import pascal.taie.ir.exp.InstanceFieldAccess;
 import pascal.taie.ir.exp.IntLiteral;
 import pascal.taie.ir.exp.ShiftExp;
 import pascal.taie.ir.exp.StaticFieldAccess;
 import pascal.taie.ir.exp.Var;
+import pascal.taie.ir.proginfo.FieldRef;
 import pascal.taie.ir.stmt.DefinitionStmt;
+import pascal.taie.ir.stmt.LoadArray;
+import pascal.taie.ir.stmt.LoadField;
 import pascal.taie.ir.stmt.Stmt;
+import pascal.taie.ir.stmt.StoreArray;
+import pascal.taie.ir.stmt.StoreField;
 import pascal.taie.language.type.PrimitiveType;
 import pascal.taie.language.type.Type;
+import pascal.taie.util.collection.Pair;
 
 public class ConstantPropagation extends
         AbstractDataflowAnalysis<Stmt, CPFact> {
@@ -82,7 +96,7 @@ public class ConstantPropagation extends
     /**
      * Meets two Values.
      */
-    public Value meetValue(Value v1, Value v2) {
+    public static Value meetValue(Value v1, Value v2) {
         // TODO - finish me
         Value res;
         if(v1.isNAC() || v2.isNAC()) {
@@ -113,6 +127,16 @@ public class ConstantPropagation extends
         if(stmt instanceof DefinitionStmt ds && ds.getLValue() instanceof Var var && canHoldInt(var)) {
             new_in.remove(var);
             new_out.update(var, evaluate(ds.getRValue(), in));
+        }else if(stmt instanceof LoadField lf && canHoldInt(lf.getLValue())) {
+            Var var = lf.getLValue();
+            new_in.remove(var);
+            FieldAccess fieldAccess = lf.getRValue();
+            new_out.update(var, evaluate(fieldAccess, in));
+        }else if(stmt instanceof LoadArray la && canHoldInt(la.getLValue())) {
+            Var var = la.getLValue();
+            new_in.remove(var);
+            ArrayAccess arrayAccess = la.getRValue();
+            new_out.update(var, evaluate(arrayAccess, in));
         }
 
         new_out.copyFrom(new_in);
@@ -193,12 +217,35 @@ public class ConstantPropagation extends
             res = in.get(var);
         }else if(exp instanceof IntLiteral il) {
             res = Value.makeConstant(il.getValue());
-        }else if(exp instanceof FieldAccess fa) {
-            
         }else if(exp instanceof StaticFieldAccess sa) {
-            
+            res = Value.getUndef();
+            for(StoreField sf : staticFiledToStore.getOrDefault(sa.getFieldRef(), new HashSet<>())) {
+                Var var = sf.getRValue();
+                res = meetValue(res, in.get(var));
+            }
+        }else if(exp instanceof InstanceFieldAccess ifa) {
+            res = Value.getUndef();
+            for(Obj obj : pta.getPointsToSet(ifa.getBase())) {
+                Pair<Obj, FieldRef> objField = new Pair<>(obj, ifa.getFieldRef());
+                for(StoreField sf : objFiledToStore.getOrDefault(objField, new HashSet<>())) {
+                    Var var = sf.getRValue();
+                    res = meetValue(res, in.get(var));
+                }
+            }
         }else if(exp instanceof ArrayAccess aa) {
-            aa.getIndex();
+            res = Value.getUndef(); // now_load_var_value
+            for(Obj obj : pta.getPointsToSet(aa.getBase())) {
+                for(StoreArray sf : arrayToStore.getOrDefault(obj, new HashSet<>())) {
+                    Var prev_store_var = sf.getRValue();
+                    Var prev_store_index = sf.getLValue().getIndex();
+                    Var now_load_index = aa.getIndex();
+                    if(in.get(prev_store_index).isNAC()
+                    || in.get(now_load_index).isNAC()
+                    || in.get(prev_store_index).getConstant() == in.get(now_load_index).getConstant()) {
+                        res = meetValue(res, in.get(prev_store_var));
+                    }
+                }
+            }
         }else {
             res = Value.getNAC();
         }
