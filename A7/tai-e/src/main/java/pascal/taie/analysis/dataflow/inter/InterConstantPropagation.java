@@ -27,11 +27,11 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import heros.solver.Pair;
 import pascal.taie.World;
 import pascal.taie.analysis.dataflow.analysis.constprop.CPFact;
 import pascal.taie.analysis.dataflow.analysis.constprop.ConstantPropagation;
 import pascal.taie.analysis.dataflow.analysis.constprop.Value;
+import pascal.taie.analysis.dataflow.fact.DataflowResult;
 import pascal.taie.analysis.graph.cfg.CFGBuilder;
 import pascal.taie.analysis.graph.icfg.CallEdge;
 import pascal.taie.analysis.graph.icfg.CallToReturnEdge;
@@ -53,6 +53,7 @@ import pascal.taie.ir.stmt.Stmt;
 import pascal.taie.ir.stmt.StoreArray;
 import pascal.taie.ir.stmt.StoreField;
 import pascal.taie.language.classes.JMethod;
+import pascal.taie.util.collection.Pair;
 
 /**
  * Implementation of interprocedural constant propagation for int values.
@@ -76,6 +77,8 @@ public class InterConstantPropagation extends
     public static Map<Obj, Set<StoreArray>> arrayToStore = new HashMap<>();
 
     public static PointerAnalysisResult pta;
+
+    public static DataflowResult<Stmt, CPFact> globalResult;
 
     public InterConstantPropagation(AnalysisConfig config) {
         super(config);
@@ -111,7 +114,7 @@ public class InterConstantPropagation extends
         });
     }
 
-    private void doStore() {
+    private void getStore() {
         icfg.getNodes().forEach(stmt -> {
             if(stmt instanceof StoreField sf) {
                 if(sf.isStatic()) {
@@ -189,7 +192,7 @@ public class InterConstantPropagation extends
         pta = World.get().getResult(ptaId);
         // You can do initialization work here
         getAliases();
-        doStore();
+        getStore();
     }
 
     @Override

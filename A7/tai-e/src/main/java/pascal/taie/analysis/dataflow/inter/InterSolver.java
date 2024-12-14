@@ -22,24 +22,16 @@
 
 package pascal.taie.analysis.dataflow.inter;
 
-import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.Queue;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import pascal.taie.analysis.dataflow.analysis.constprop.CPFact;
-import pascal.taie.analysis.dataflow.analysis.constprop.ConstantPropagation;
-import pascal.taie.analysis.dataflow.analysis.constprop.Value;
 import pascal.taie.analysis.dataflow.fact.DataflowResult;
-import static pascal.taie.analysis.dataflow.inter.InterConstantPropagation.staticFiledToStore;
+import static pascal.taie.analysis.dataflow.inter.InterConstantPropagation.globalResult;
 import pascal.taie.analysis.graph.icfg.ICFG;
 import pascal.taie.analysis.graph.icfg.ICFGEdge;
-import pascal.taie.config.AnalysisConfig;
-import pascal.taie.ir.exp.Var;
-import pascal.taie.ir.proginfo.FieldRef;
-import pascal.taie.ir.stmt.LoadField;
 import pascal.taie.ir.stmt.Stmt;
-import pascal.taie.ir.stmt.StoreField;
 
 /**
  * Solver for inter-procedural data-flow analysis.
@@ -65,8 +57,10 @@ class InterSolver<Method, Node, Fact> {
         // cp = new ConstantPropagation(new AnalysisConfig(ConstantPropagation.ID));
     }
 
+    @SuppressWarnings("unchecked")
     DataflowResult<Node, Fact> solve() {
         result = new DataflowResult<>();
+        globalResult = (DataflowResult<Stmt, CPFact>) result;
         initialize();
         doSolve();
         return result;
@@ -100,29 +94,23 @@ class InterSolver<Method, Node, Fact> {
 
     private void doSolve() {
         // TODO - finish me
-        Set<Node> worklist = new HashSet<>(icfg.getNodes());
-        Set<Node> buffer = new HashSet<>();
-        while(!worklist.isEmpty()) {
-            for(Node node : worklist) {
-                Fact new_in = result.getInFact(node);
-                for(ICFGEdge<Node> inEdge : icfg.getInEdgesOf(node)) {
-                    analysis.meetInto(analysis.transferEdge(inEdge, result.getOutFact(inEdge.getSource())), new_in);
-                }
-                result.setInFact(node, new_in);
-
-                // if(node.getClass() == Stmt)
-                // doSolveInMid((Stmt) node, (CPFact) new_in);
-                
-                Fact new_out = result.getOutFact(node);
-                if(analysis.transferNode(node, new_in, new_out)) {
-                    buffer.addAll(icfg.getSuccsOf(node));
-                }
-                result.setOutFact(node, new_out);
+        workList = new LinkedList<>(icfg.getNodes());
+        while(!workList.isEmpty()) {
+            Node node = workList.poll();
+            Fact new_in = result.getInFact(node);
+            for(ICFGEdge<Node> inEdge : icfg.getInEdgesOf(node)) {
+                analysis.meetInto(analysis.transferEdge(inEdge, result.getOutFact(inEdge.getSource())), new_in);
             }
-            Set<Node> temp = worklist;
-            worklist = buffer;
-            buffer = temp;
-            buffer.clear();
+            result.setInFact(node, new_in);
+
+            // if(node.getClass() == Stmt)
+            // doSolveInMid((Stmt) node, (CPFact) new_in);
+            
+            Fact new_out = result.getOutFact(node);
+            if(analysis.transferNode(node, new_in, new_out)) {
+                workList.addAll(icfg.getSuccsOf(node));
+            }
+            result.setOutFact(node, new_out);
         }
     }
 }
