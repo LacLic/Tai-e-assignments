@@ -25,20 +25,21 @@ package pascal.taie.analysis.dataflow.analysis.constprop;
 import pascal.taie.analysis.dataflow.analysis.AbstractDataflowAnalysis;
 import pascal.taie.analysis.graph.cfg.CFG;
 import pascal.taie.config.AnalysisConfig;
-import pascal.taie.ir.IR;
 import pascal.taie.ir.exp.ArithmeticExp;
+import pascal.taie.ir.exp.ArrayAccess;
 import pascal.taie.ir.exp.BinaryExp;
 import pascal.taie.ir.exp.BitwiseExp;
 import pascal.taie.ir.exp.ConditionExp;
 import pascal.taie.ir.exp.Exp;
+import pascal.taie.ir.exp.FieldAccess;
 import pascal.taie.ir.exp.IntLiteral;
 import pascal.taie.ir.exp.ShiftExp;
+import pascal.taie.ir.exp.StaticFieldAccess;
 import pascal.taie.ir.exp.Var;
 import pascal.taie.ir.stmt.DefinitionStmt;
 import pascal.taie.ir.stmt.Stmt;
 import pascal.taie.language.type.PrimitiveType;
 import pascal.taie.language.type.Type;
-import pascal.taie.util.AnalysisException;
 
 public class ConstantPropagation extends
         AbstractDataflowAnalysis<Stmt, CPFact> {
@@ -192,6 +193,12 @@ public class ConstantPropagation extends
             res = in.get(var);
         }else if(exp instanceof IntLiteral il) {
             res = Value.makeConstant(il.getValue());
+        }else if(exp instanceof FieldAccess fa) {
+            
+        }else if(exp instanceof StaticFieldAccess sa) {
+            
+        }else if(exp instanceof ArrayAccess aa) {
+            aa.getIndex();
         }else {
             res = Value.getNAC();
         }

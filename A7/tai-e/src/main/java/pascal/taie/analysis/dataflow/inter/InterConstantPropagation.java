@@ -22,22 +22,33 @@
 
 package pascal.taie.analysis.dataflow.inter;
 
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
 import pascal.taie.World;
 import pascal.taie.analysis.dataflow.analysis.constprop.CPFact;
 import pascal.taie.analysis.dataflow.analysis.constprop.ConstantPropagation;
-import pascal.taie.analysis.graph.cfg.CFG;
+import pascal.taie.analysis.dataflow.analysis.constprop.Value;
 import pascal.taie.analysis.graph.cfg.CFGBuilder;
 import pascal.taie.analysis.graph.icfg.CallEdge;
 import pascal.taie.analysis.graph.icfg.CallToReturnEdge;
 import pascal.taie.analysis.graph.icfg.NormalEdge;
 import pascal.taie.analysis.graph.icfg.ReturnEdge;
 import pascal.taie.analysis.pta.PointerAnalysisResult;
+import pascal.taie.analysis.pta.core.heap.Obj;
 import pascal.taie.config.AnalysisConfig;
 import pascal.taie.ir.IR;
 import pascal.taie.ir.exp.InvokeExp;
+import pascal.taie.ir.exp.LValue;
+import pascal.taie.ir.exp.RValue;
 import pascal.taie.ir.exp.Var;
-import pascal.taie.ir.stmt.Invoke;
+import pascal.taie.ir.proginfo.FieldRef;
+import pascal.taie.ir.stmt.DefinitionStmt;
 import pascal.taie.ir.stmt.Stmt;
+import pascal.taie.ir.stmt.StoreArray;
+import pascal.taie.ir.stmt.StoreField;
 import pascal.taie.language.classes.JMethod;
 
 /**
@@ -50,16 +61,100 @@ public class InterConstantPropagation extends
 
     private final ConstantPropagation cp;
 
+    public static Map<Obj, Set<Var>> objToPtr = new HashMap<>();
+
+    public static Map<FieldRef, Set<StoreField>> objFiledToStore = new HashMap<>();
+
+    public static Map<FieldRef, Set<StoreField>> staticFiledToStore = new HashMap<>();
+
     public InterConstantPropagation(AnalysisConfig config) {
         super(config);
         cp = new ConstantPropagation(new AnalysisConfig(ConstantPropagation.ID));
     }
+
+    private void doStaticFiledStore(StoreField sf) {
+        // When analyzing a load statement of a static field, say x = T.f;, you just need to look up the store statements of the same field (T.f) in the program, and meet the stored values to the LHS variable (x) of the load statement.
+        FieldRef fieldRef = sf.getLValue().getFieldRef();
+        Set<StoreField> set = staticFiledToVal.getOrDefault(fieldRef, new HashSet<StoreField>());
+        // lValue = cp.meetValue(lValue, );
+        staticFiledToVal.put(fieldRef, lValue);
+    }
+
+    private void doInstanceFieldStore(Stmt stmt) {
+        // When analyzing an instance field load, say L, we look up the store statements which modify the aliases of the instance field and meet the stored values to the LHS variable of L as shown below
+    }
+    
+    private void doArrayStore(Stmt stmt) {
+        
+    }
+
+    private void doStore() {
+        icfg.getNodes().forEach(stmt -> {
+            if(stmt instanceof StoreField sf) {
+                if(sf.isStatic()) {
+                    doStaticFiledStore(sf);
+                }else {
+                    doInstanceFieldStore(sf);
+                }
+            }else if(stmt instanceof StoreArray sa) {
+                doArrayStore(sa);
+            }
+        });
+    }
+
+    /**
+     * Meets two Values.
+     */
+    public Value meetValue(Value v1, Value v2) {
+        // TODO - finish me
+        Value res;
+        if(v1.isNAC() || v2.isNAC()) {
+            res = Value.getNAC();
+        }else if(v1.isConstant() && v2.isConstant()) {
+            if(v1.getConstant() == v2.getConstant()) {
+                res = Value.makeConstant(v1.getConstant());
+            }else {
+                res = Value.getNAC();
+            }
+        }else if(v1.isConstant() && v2.isUndef()) {
+            res = Value.makeConstant(v1.getConstant());
+        }else if(v1.isUndef() && v2.isConstant()) {
+            res = Value.makeConstant(v2.getConstant());
+        }else /* v1,v2 both Undef */ {
+            res = Value.getUndef();
+        }
+
+        return res; 
+    }
+
+    /**
+     * @return alias list map, one's alias can be itself.
+     */
+    private void getAliases(PointerAnalysisResult pta) {
+        pta.getCSVars().forEach(csVar -> {
+            csVar.getPointsToSet().forEach(csObj -> {
+                Set<Var> tar = objToPtr.getOrDefault(csObj.getObject(), new HashSet<>());
+                tar.add(csVar.getVar());
+            });
+        });
+    }
+
+    // private void doStaticFiledStore() {
+    //     icfg.getNodes().forEach(stmt -> {
+    //         if(stmt instanceof StoreField sf && sf.isStatic()) {
+    //             Set<StoreField> set = staticFiledToVal.getOrDefault(sf.getLValue().getFieldRef().getDeclaringClass(), new HashSet<>());
+    //             set.add()
+    //         }
+    //     });
+    // }
 
     @Override
     protected void initialize() {
         String ptaId = getOptions().getString("pta");
         PointerAnalysisResult pta = World.get().getResult(ptaId);
         // You can do initialization work here
+        getAliases(pta);
+        doStore();
     }
 
     @Override
@@ -83,39 +178,68 @@ public class InterConstantPropagation extends
         cp.meetInto(fact, target);
     }
 
+
     @Override
     protected boolean transferCallNode(Stmt stmt, CPFact in, CPFact out) {
         // TODO - finish me
-        return false;
+        return out.copyFrom(in);
     }
 
     @Override
     protected boolean transferNonCallNode(Stmt stmt, CPFact in, CPFact out) {
         // TODO - finish me
-        return false;
+        return cp.transferNode(stmt, in, out);
     }
 
     @Override
     protected CPFact transferNormalEdge(NormalEdge<Stmt> edge, CPFact out) {
         // TODO - finish me
-        return null;
+        return out;
     }
 
     @Override
     protected CPFact transferCallToReturnEdge(CallToReturnEdge<Stmt> edge, CPFact out) {
         // TODO - finish me
-        return null;
+        return out;
     }
 
     @Override
     protected CPFact transferCallEdge(CallEdge<Stmt> edge, CPFact callSiteOut) {
         // TODO - finish me
-        return null;
+        Stmt src = edge.getSource(), tar = edge.getTarget();
+        IR ir = icfg.getContainingMethodOf(tar).getIR();
+        CPFact calleeIn = new CPFact();
+        if(src instanceof DefinitionStmt dstmt) {
+            RValue rv = dstmt.getRValue();
+            if(rv instanceof InvokeExp iexp) {
+                int argc = iexp.getArgs().size();
+                for(int i = 0; i < argc; i++) {
+                    calleeIn.update(ir.getParam(i), callSiteOut.get(iexp.getArg(i)));
+                }
+            }
+        }
+
+        return calleeIn;
     }
 
     @Override
     protected CPFact transferReturnEdge(ReturnEdge<Stmt> edge, CPFact returnOut) {
         // TODO - finish me
-        return null;
+        CPFact callerReturnIn = new CPFact();
+        Stmt callSite = edge.getCallSite();
+        if(callSite.getDef().isPresent()) {
+            LValue lv = callSite.getDef().get();
+            if(lv instanceof Var lvar) {
+                Value returnValue = Value.getUndef();
+                for(Var var : edge.getReturnVars()) {
+                    returnValue = cp.meetValue(returnOut.get(var), returnValue);
+                }
+                if(!returnValue.isUndef()) {
+                    callerReturnIn.update(lvar, returnValue);
+                }
+            }
+        }
+
+        return callerReturnIn;
     }
 }

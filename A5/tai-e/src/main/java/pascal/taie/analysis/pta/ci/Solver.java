@@ -238,7 +238,7 @@ class Solver {
                     varPtr.getVar().getLoadFields().forEach(field -> {
                         addPFGEdge(
                             pointerFlowGraph.getInstanceField(obj, field.getFieldRef().resolve()),
-                            pointerFlowGraph.getVarPtr(field.getLValue())
+                                pointerFlowGraph.getVarPtr(field.getLValue())
                         );
                     });
 
@@ -277,7 +277,7 @@ class Solver {
             pointerFlowGraph.getSuccsOf(pointer).forEach(to -> {
                 workList.addEntry(to, pointsToSet);
             });
-        }
+        }   
         return pointsToSet;
     }
 
@@ -319,7 +319,7 @@ class Solver {
                                 pointerFlowGraph.getVarPtr(retVar),
                                 pointerFlowGraph.getVarPtr(lVar)
                             );
-                        }   
+                        }
                     });
                 }
             }
