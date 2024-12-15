@@ -12,7 +12,9 @@ A5: Accepted
 
 A6: Accepted
 
-A7 and A8: WIP
+A7: Accepted
+
+A8: WIP
 
 ------
 
