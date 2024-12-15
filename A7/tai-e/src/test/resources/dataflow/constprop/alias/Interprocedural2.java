@@ -3,9 +3,9 @@ class Interprocedural2 {
         X x = new X();
         x.setF(123);
         int a = x.getF();
-        // Y y = new Y();
-        // y.setG(789);
-        // int b = y.getG();
+        Y y = new Y();
+        y.setG(789);
+        int b = y.getG();
     }
 
     static class X {
@@ -20,15 +20,15 @@ class Interprocedural2 {
         }
     }
 
-    // static class Y {
-    //     int g;
+    static class Y {
+        int g;
 
-    //     int getG() {
-    //         return g;
-    //     }
+        int getG() {
+            return g;
+        }
 
-    //     void setG(int g) {
-    //         this.g = g;
-    //     }
-    // }
+        void setG(int g) {
+            this.g = g;
+        }
+    }
 }

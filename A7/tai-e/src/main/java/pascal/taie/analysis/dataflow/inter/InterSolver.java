@@ -22,7 +22,6 @@
 
 package pascal.taie.analysis.dataflow.inter;
 
-import java.util.LinkedList;
 import java.util.Queue;
 import java.util.stream.Collectors;
 
@@ -94,23 +93,44 @@ class InterSolver<Method, Node, Fact> {
 
     private void doSolve() {
         // TODO - finish me
-        workList = new LinkedList<>(icfg.getNodes());
-        while(!workList.isEmpty()) {
-            Node node = workList.poll();
-            Fact new_in = result.getInFact(node);
-            for(ICFGEdge<Node> inEdge : icfg.getInEdgesOf(node)) {
-                analysis.meetInto(analysis.transferEdge(inEdge, result.getOutFact(inEdge.getSource())), new_in);
-            }
-            result.setInFact(node, new_in);
+        // Set<Node> worklist = new HashSet<>(icfg.getNodes());
+        // Set<Node> buffer = new HashSet<>();
+        // while(!worklist.isEmpty()) {
+        //     for(Node node : worklist) {
+        //         Fact new_in = result.getInFact(node);
+        //         for(ICFGEdge<Node> inEdge : icfg.getInEdgesOf(node)) {
+        //             analysis.meetInto(analysis.transferEdge(inEdge, result.getOutFact(inEdge.getSource())), new_in);
+        //         }
+        //         result.setInFact(node, new_in);
 
-            // if(node.getClass() == Stmt)
-            // doSolveInMid((Stmt) node, (CPFact) new_in);
-            
-            Fact new_out = result.getOutFact(node);
-            if(analysis.transferNode(node, new_in, new_out)) {
-                workList.addAll(icfg.getSuccsOf(node));
+        //         Fact new_out = result.getOutFact(node);
+        //         if(analysis.transferNode(node, new_in, new_out)) {
+        //             buffer.addAll(icfg.getSuccsOf(node));
+        //         }
+        //         result.setOutFact(node, new_out);
+        //     }
+        //     Set<Node> temp = worklist;
+        //     worklist = buffer;
+        //     buffer = temp;
+        //     buffer.clear();
+        // }
+
+        // actually iterative solver
+        boolean isChanged = true;
+        while(isChanged) {
+            isChanged = false;
+
+            for(Node node : icfg.getNodes()) {
+                Fact new_in = result.getInFact(node);
+                for(ICFGEdge<Node> inEdge : icfg.getInEdgesOf(node)) {
+                    analysis.meetInto(analysis.transferEdge(inEdge, result.getOutFact(inEdge.getSource())), new_in);
+                }
+                result.setInFact(node, new_in);
+
+                Fact new_out = result.getOutFact(node);
+                isChanged |= analysis.transferNode(node, new_in, new_out);
+                result.setOutFact(node, new_out);
             }
-            result.setOutFact(node, new_out);
         }
     }
 }
