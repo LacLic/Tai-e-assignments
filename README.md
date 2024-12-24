@@ -14,7 +14,11 @@ A6: Accepted
 
 A7: Accepted
 
-A8: WIP
+A8: Accepted
+
+ALL ACCEPTED!
+
+The code in repo is just for reference only. Please obey academic integrity rules and do not plagiarize.
 
 ------
 

@@ -22,6 +22,11 @@
 
 package pascal.taie.analysis.pta.cs;
 
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -80,11 +85,14 @@ public class Solver {
 
     private PointerAnalysisResult result;
 
+    private Map<CSVar, Set<Invoke>> taintInMethodArg;
+
     Solver(AnalysisOptions options, HeapModel heapModel,
            ContextSelector contextSelector) {
         this.options = options;
         this.heapModel = heapModel;
         this.contextSelector = contextSelector;
+        this.taintInMethodArg = new HashMap<>();
     }
 
     public AnalysisOptions getOptions() {
@@ -160,6 +168,13 @@ public class Solver {
                     CallKind.STATIC
                 );
             }
+
+            ivk.getInvokeExp().getArgs().forEach(arg -> {
+                CSVar var = csManager.getCSVar(context, arg);
+                Set<Invoke> invokes = taintInMethodArg.getOrDefault(var, new HashSet<>());
+                invokes.add(ivk);
+                taintInMethodArg.put(var, invokes);
+            });
 
             return visitDefault(ivk);
         }
@@ -268,6 +283,34 @@ public class Solver {
                     });
 
                     processCall(csVar, obj);
+
+                    if(taintAnalysis.isTaint(obj.getObject())) {
+                        taintInMethodArg.getOrDefault(csVar, new HashSet<>()).forEach(callsite -> {
+                            CSCallSite csCallSite = csManager.getCSCallSite(csVar.getContext(), callsite);
+                            if(callsite.getInvokeExp() instanceof InvokeInstanceExp iiexp) {
+                                CSVar base = csManager.getCSVar(
+                                    csCallSite.getContext(),
+                                    iiexp.getBase()
+                                );
+                                base.getPointsToSet().forEach(baseObj -> {
+                                    JMethod callee = resolveCallee(baseObj, callsite);
+                                    taintAnalysis.makeTaintTransfers(csCallSite, callee, base).forEach((csVarr, taint) -> {
+                                        workList.addEntry(csVarr,
+                                            PointsToSetFactory.make(taint)
+                                        );
+                                    });
+                                });
+                            }else {
+                                JMethod callee = resolveCallee(null, callsite);
+                                taintAnalysis.makeTaintTransfers(csCallSite, callee, null).forEach((csVarr, taint) -> {
+                                    workList.addEntry(
+                                        csVarr,
+                                        PointsToSetFactory.make(taint)
+                                    );
+                                });
+                            }
+                        });
+                    }
                 });
             }
         }

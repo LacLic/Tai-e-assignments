@@ -70,6 +70,10 @@ public class TaintAnalysiss {
     }
 
     // TODO - finish me
+    public boolean isTaint(Obj obj) {
+        return manager.isTaint(obj);
+    }
+
     // Call (source)
     public CSObj makeSource(Invoke callsite, JMethod callee){
         Type retType = callee.getReturnType();
@@ -101,8 +105,8 @@ public class TaintAnalysiss {
         Invoke callsite = csCallSite.getCallSite();
         Var retVar = callsite.getLValue();
         Type retType = retVar == null ? null : retVar.getType();
-        Type baseType = base.getType();
-        CSVar csRetVar = csManager.getCSVar(csCallSite.getContext(), retVar);
+        Type baseType = base == null ? null : base.getType();
+        CSVar csRetVar = retVar == null ? null : csManager.getCSVar(csCallSite.getContext(), retVar);
         PointerAnalysisResult result = solver.getResult();
         Map<CSVar, CSObj> pointsToTaints = new HashMap<>();
         if(!callee.isStatic()) {
@@ -141,7 +145,7 @@ public class TaintAnalysiss {
                     baseType
                 );
                 
-                if(config.getTransfers().contains(taintTransfer) && retVar != null) {
+                if(config.getTransfers().contains(taintTransfer)) {
                     result.getPointsToSet(csManager.getCSVar(csCallSite.getContext(), arg)).forEach(csObj -> {
                         if(manager.isTaint(csObj.getObject())) {
                             pointsToTaints.put(
