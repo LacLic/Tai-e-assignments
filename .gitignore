@@ -6,3 +6,4 @@ output/
 sootOutput/
 .vscode/
 A*.zip
+bin/

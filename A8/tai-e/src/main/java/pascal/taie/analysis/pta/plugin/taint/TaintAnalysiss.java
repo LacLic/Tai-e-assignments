@@ -22,6 +22,8 @@
 
 package pascal.taie.analysis.pta.plugin.taint;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -31,6 +33,7 @@ import org.apache.logging.log4j.Logger;
 import pascal.taie.World;
 import pascal.taie.analysis.pta.PointerAnalysisResult;
 import pascal.taie.analysis.pta.core.cs.context.Context;
+import pascal.taie.analysis.pta.core.cs.element.CSCallSite;
 import pascal.taie.analysis.pta.core.cs.element.CSManager;
 import pascal.taie.analysis.pta.core.cs.element.CSVar;
 import pascal.taie.analysis.pta.core.heap.Obj;
@@ -38,7 +41,7 @@ import pascal.taie.analysis.pta.cs.Solver;
 import pascal.taie.ir.exp.Var;
 import pascal.taie.ir.stmt.Invoke;
 import pascal.taie.language.classes.JMethod;
-
+import pascal.taie.language.type.Type;
 public class TaintAnalysiss {
 
     private static final Logger logger = LogManager.getLogger(TaintAnalysiss.class);
@@ -82,8 +85,91 @@ public class TaintAnalysiss {
      * particularly useful when the type of the transferred object (pointed to by to) differs from the type of the taint
      * object pointed to by from.
      */
-    public void taintTransfers(JMethod callee, CSVar base) {
+    public Map<CSVar, Obj> makeTaintTransfers(CSCallSite csCallSite, JMethod callee, CSVar base) {
+        // m: callee
+        // u: base.getType()
+        Invoke callsite = csCallSite.getCallSite();
+        Var retVar = callsite.getLValue();
+        Type retType = retVar == null ? null : retVar.getType();
+        Type baseType = base.getType();
+        CSVar csRetVar = csManager.getCSVar(csCallSite.getContext(), retVar);
+        PointerAnalysisResult result = solver.getResult();
+        Map<CSVar, Obj> pointsToTaints = new HashMap<>();
+        if(!callee.isStatic()) {
+            // Call (base-to-result)
+            TaintTransfer taintTransfer = new TaintTransfer(
+                callee,
+                -1, // "base"
+                -2, // "result"
+                retType
+            );
+            
+            if(config.getTransfers().contains(taintTransfer) && retVar != null) {
+                result.getPointsToSet(base).forEach(csObj -> {
+                    if(manager.isTaint(csObj.getObject())) {
+                        pointsToTaints.put(
+                            csRetVar,
+                            manager.makeTaint(
+                                manager.getSourceCall(csObj.getObject()),
+                                retType
+                            )
+                        );
+                    }
+                });
+            }
 
+            // Call (arg-to-base)
+            for(int i = 0; i < callsite.getRValue().getArgCount(); i++) {
+                Var arg = callsite.getRValue().getArg(i);
+                taintTransfer = new TaintTransfer(
+                    callee,
+                    i,
+                    -1, // "base"
+                    baseType
+                );
+                
+                if(config.getTransfers().contains(taintTransfer) && retVar != null) {
+                    result.getPointsToSet(csManager.getCSVar(csCallSite.getContext(), arg)).forEach(csObj -> {
+                        if(manager.isTaint(csObj.getObject())) {
+                            pointsToTaints.put(
+                                base,
+                                manager.makeTaint(
+                                    manager.getSourceCall(csObj.getObject()),
+                                    baseType
+                                )
+                            );
+                        }
+                    });
+                }
+            }
+        }
+        
+        // Call (arg-to-result)
+        if(retVar != null) for(int i = 0; i < callsite.getRValue().getArgCount(); i++) {
+            Var arg = callsite.getRValue().getArg(i);
+            TaintTransfer taintTransfer = new TaintTransfer(
+                callee,
+                i,
+                -2, // "result"
+                retType
+            );
+            
+            if(config.getTransfers().contains(taintTransfer)) {
+                result.getPointsToSet(csManager.getCSVar(csCallSite.getContext(), arg)).forEach(csObj -> {
+                    if(manager.isTaint(csObj.getObject())) {
+                        pointsToTaints.put(
+                            csRetVar,
+                            manager.makeTaint(
+                                manager.getSourceCall(csObj.getObject()),
+                                retType
+                            )
+                        );
+                    }
+                });
+            }
+        }
+        
+        return pointsToTaints;
     }
 
 
@@ -101,10 +187,10 @@ public class TaintAnalysiss {
             csCallee -> result.getCSCallGraph().getCallersOf(csCallee).forEach(
                 csCaller -> {
                     JMethod callee = csCallee.getMethod();
-                    Invoke caller = csCaller.getCallSite();
-                    int n = caller.getRValue().getArgCount();
+                    Invoke callsite = csCaller.getCallSite();
+                    int n = callsite.getRValue().getArgCount();
                     for(int i = 0; i < n; i++) {
-                        Var arg = caller.getRValue().getArg(i);
+                        Var arg = callsite.getRValue().getArg(i);
                         Sink sink = new Sink(callee, i);
                         if(config.getSinks().contains(sink)) {
                             for(Obj obj : result.getPointsToSet(arg)) {
@@ -112,7 +198,7 @@ public class TaintAnalysiss {
                                     taintFlows.add(
                                         new TaintFlow(
                                             manager.getSourceCall(obj),
-                                            caller,
+                                            callsite,
                                             i
                                         )
                                     );
