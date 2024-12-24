@@ -47,6 +47,7 @@ import pascal.taie.analysis.pta.plugin.taint.TaintAnalysiss;
 import pascal.taie.analysis.pta.pts.PointsToSet;
 import pascal.taie.analysis.pta.pts.PointsToSetFactory;
 import pascal.taie.config.AnalysisOptions;
+import pascal.taie.ir.exp.InvokeInstanceExp;
 import pascal.taie.ir.exp.Var;
 import pascal.taie.ir.stmt.Copy;
 import pascal.taie.ir.stmt.Invoke;
@@ -295,6 +296,24 @@ public class Solver {
     private void doProcessCall(CSCallSite csCallSite, CSMethod csCallee, CallKind callKind) {
         Context ct = csCallee.getContext();
         JMethod callee = csCallee.getMethod();
+        Invoke callsite = csCallSite.getCallSite();
+        CSObj taintObj = taintAnalysis.makeSource(
+            callsite,
+            csCallee.getMethod()
+        );
+        if(taintObj != null) {
+            Var lVar = csCallSite.getCallSite().getLValue();
+            if(lVar != null) {
+                CSVar csVar = csManager.getCSVar(
+                    csCallSite.getContext(),
+                    lVar
+                );
+                workList.addEntry(
+                    csVar,
+                    PointsToSetFactory.make(taintObj)
+                );
+            }
+        }
 
         if(callKind != null) {
             if(callGraph.addEdge(new Edge<>(callKind, csCallSite, csCallee))) {
@@ -316,6 +335,25 @@ public class Solver {
                         );
                     });
                 }
+            }
+
+            if(callsite.getInvokeExp() instanceof InvokeInstanceExp iiexp) {
+                CSVar base = csManager.getCSVar(
+                    csCallSite.getContext(),
+                    iiexp.getBase()
+                );
+                taintAnalysis.makeTaintTransfers(csCallSite, callee, base).forEach((csVar, taint) -> {
+                    propagate(csVar,
+                        PointsToSetFactory.make(taint)
+                    );
+                });
+            }else {
+                taintAnalysis.makeTaintTransfers(csCallSite, callee, null).forEach((csVar, taint) -> {
+                    propagate(
+                        csVar,
+                        PointsToSetFactory.make(taint)
+                    );
+                });
             }
         }
     }

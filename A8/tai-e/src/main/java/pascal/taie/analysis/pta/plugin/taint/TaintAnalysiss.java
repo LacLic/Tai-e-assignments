@@ -35,6 +35,7 @@ import pascal.taie.analysis.pta.PointerAnalysisResult;
 import pascal.taie.analysis.pta.core.cs.context.Context;
 import pascal.taie.analysis.pta.core.cs.element.CSCallSite;
 import pascal.taie.analysis.pta.core.cs.element.CSManager;
+import pascal.taie.analysis.pta.core.cs.element.CSObj;
 import pascal.taie.analysis.pta.core.cs.element.CSVar;
 import pascal.taie.analysis.pta.core.heap.Obj;
 import pascal.taie.analysis.pta.cs.Solver;
@@ -69,6 +70,15 @@ public class TaintAnalysiss {
     }
 
     // TODO - finish me
+    // Call (source)
+    public CSObj makeSource(Invoke callsite, JMethod callee){
+        Type retType = callee.getReturnType();
+        if (config.getSources().contains(new Source(callee, retType))){
+            return csManager.getCSObj(emptyContext, manager.makeTaint(callsite, retType));
+        }else {
+            return null;
+        }
+    }
 
     /**
      * We define another input of taint analysis, called TaintI'ran fers, which is a set of four-element tuples, denoted
@@ -85,7 +95,7 @@ public class TaintAnalysiss {
      * particularly useful when the type of the transferred object (pointed to by to) differs from the type of the taint
      * object pointed to by from.
      */
-    public Map<CSVar, Obj> makeTaintTransfers(CSCallSite csCallSite, JMethod callee, CSVar base) {
+    public Map<CSVar, CSObj> makeTaintTransfers(CSCallSite csCallSite, JMethod callee, CSVar base) {
         // m: callee
         // u: base.getType()
         Invoke callsite = csCallSite.getCallSite();
@@ -94,7 +104,7 @@ public class TaintAnalysiss {
         Type baseType = base.getType();
         CSVar csRetVar = csManager.getCSVar(csCallSite.getContext(), retVar);
         PointerAnalysisResult result = solver.getResult();
-        Map<CSVar, Obj> pointsToTaints = new HashMap<>();
+        Map<CSVar, CSObj> pointsToTaints = new HashMap<>();
         if(!callee.isStatic()) {
             // Call (base-to-result)
             TaintTransfer taintTransfer = new TaintTransfer(
@@ -109,9 +119,12 @@ public class TaintAnalysiss {
                     if(manager.isTaint(csObj.getObject())) {
                         pointsToTaints.put(
                             csRetVar,
-                            manager.makeTaint(
-                                manager.getSourceCall(csObj.getObject()),
-                                retType
+                            csManager.getCSObj(
+                                    emptyContext,
+                                    manager.makeTaint(
+                                    manager.getSourceCall(csObj.getObject()),
+                                    retType
+                                )
                             )
                         );
                     }
@@ -133,9 +146,12 @@ public class TaintAnalysiss {
                         if(manager.isTaint(csObj.getObject())) {
                             pointsToTaints.put(
                                 base,
-                                manager.makeTaint(
-                                    manager.getSourceCall(csObj.getObject()),
-                                    baseType
+                                csManager.getCSObj(
+                                    emptyContext,
+                                    manager.makeTaint(
+                                        manager.getSourceCall(csObj.getObject()),
+                                        baseType
+                                    )
                                 )
                             );
                         }
@@ -159,9 +175,12 @@ public class TaintAnalysiss {
                     if(manager.isTaint(csObj.getObject())) {
                         pointsToTaints.put(
                             csRetVar,
-                            manager.makeTaint(
-                                manager.getSourceCall(csObj.getObject()),
-                                retType
+                            csManager.getCSObj(
+                                emptyContext,
+                                manager.makeTaint(
+                                    manager.getSourceCall(csObj.getObject()),
+                                    retType
+                                )
                             )
                         );
                     }
@@ -179,6 +198,7 @@ public class TaintAnalysiss {
     }
 
     private Set<TaintFlow> collectTaintFlows() {
+        // Call (sink)
         Set<TaintFlow> taintFlows = new TreeSet<>();
         PointerAnalysisResult result = solver.getResult();
         // TODO - finish me
